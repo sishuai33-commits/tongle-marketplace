@@ -1,0 +1,25 @@
+# wiki-management 路径登记文档 — 朋友填写模板
+# ⚠️ 身份：路径登记文档（非运行时接口）。wiki_checks.py 走 WIKI_VAULT_PATH 环境变量，
+#    不读此 yaml。此文件仅供你查阅"机制层资产路径登记"，换值不自动传播。
+#    改 Vault 路径请设环境变量：export WIKI_VAULT_PATH=你的Vault路径
+
+# Obsidian Vault 根（wiki 数据资产所在）— 改成你的实际路径
+wiki_vault:
+  root: ~/Documents/Obsidian Vault          # ← 改成你的 Vault 路径
+  wiki_subdir: wiki
+
+# wiki-daemon 位置（install 后在 tongle plugin 内 adapters/obsidian/，机制层走 CLAUDE_PLUGIN_ROOT 定位）
+wiki_daemon:
+  adapter_path: <tongle安装目录>/adapters/obsidian/.wiki-daemon.py
+  vault_symlink: ~/Documents/Obsidian Vault/wiki/.wiki-daemon.py
+  note: daemon 在 tongle plugin 内，install.sh 后自动就位；Vault 内为 symlink 兼容第三方调用
+
+# 衰减参数（在 Vault 内）
+decay_params:
+  location: wiki/.dream-config.md
+
+# 落日/归档
+archive:
+  dir: wiki/_archived/
+  sunset_buffer_days: 7        # 候选归档缓冲
+  physical_delete_days: 90     # 归档后物理删除

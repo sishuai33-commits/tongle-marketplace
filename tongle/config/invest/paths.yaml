@@ -1,0 +1,18 @@
+# invest 外部工程路径配置 — 朋友填写模板
+# 机制层（invest/SKILL.md / scripts）通过此配置定位外部工程路径，不硬编。
+#
+# ⚠️ 如你不使用 invest skill / 知识星球爬虫，本文件可忽略或删除。
+# 路径指向你本地的相关工程目录（如有），改成你的实际路径。
+
+# 知识星球爬虫（专家源材料，如陈老师/重远投资观类）
+zsxq_crawler:
+  root: ~/your/path/to/zsxq-crawler                    # ← 爬虫工程根（如无则忽略）
+  obsidian_qa_dir: ~/your/path/to/zsxq-crawler/问答     # ← 最新问答目录
+  crawler_jinghua: node scripts/crawler-jinghua.js
+  timeout_seconds: 90
+
+# invest-agent-system（orchestrator 规则加工，如有）
+invest_agent_system:
+  root: ~/your/path/to/invest-agent-system              # ← orchestrator 工程根（如无则忽略）
+  orchestrator_module: code_agent.agents.orchestrator
+  # 调用：cd <root> && python3 -m <orchestrator_module> '<json>'

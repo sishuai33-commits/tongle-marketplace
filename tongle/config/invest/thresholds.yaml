@@ -1,0 +1,34 @@
+# invest 阈值配置（资产层）— 朋友填写模板
+# 机制层（invest/SKILL.md / CC 推理）通过此配置读阈值，不硬编。
+#
+# ⚠️ 如你不使用 invest skill（投资分析），本文件可忽略或删除整个 config/invest/。
+# 下面是示例值，改成你自己的持仓防守线 + 专家 spawn 触发条件。
+
+# ── 防守线（轻量模式快速对照，真值建议同步到你的知识库）──
+defense_lines:
+  # 键名用下划线（yaml 点号取值不支持含空格的键）
+  example_index: 1.85      # 示例：某指数防守线（改成你的品种）
+  # example_hold: 2.05     # 示例：某品种防守线（改成你的持仓键，如持仓则填）
+
+# ── 专家 spawn 触发条件 ──
+expert_spawn:
+  force_spawn:               # 🔴 任一满足 → 必拉专家（不受节流限制）
+    position_daily_change_pct: 5      # 持仓品种单日波幅 >5%
+    oil_daily_change_pct: 5           # 油价单日波幅 >5%
+    us_30y_daily_change_bp: 15        # 美30Y 单日波幅 >15bp
+    vix_daily_change_pct: 30          # VIX 单日波幅 >30%
+  conditional_spawn:         # 🟡 满足 ≥conditional_min_match 项 → 召唤专家
+    cpi_pce_deviation_pct: 0.3
+    us_30y_sustained_pct: 5
+    us_30y_sustained_days: 5
+    hike_prob_high: 70
+    hike_prob_low: 30
+    advance_decline_extreme_high: 3
+    advance_decline_extreme_low: 0.3
+    volume_extreme_high_trillion: 3
+    volume_extreme_low_trillion: 1.5
+    a_share_consecutive_days: 3
+    a_share_consecutive_change_pct: 2
+    conditional_min_match: 2
+  throttle:                  # 🔄 spawn 节流，避免每日重复
+    reuse_window_days: 3

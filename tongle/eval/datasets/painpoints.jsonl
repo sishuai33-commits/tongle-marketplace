@@ -1,0 +1,18 @@
+{"id": "pp-001", "project": "投资跟踪", "question": "invest投资分析体系里，防守线阈值(比如某指数A的1.85、某品种B的2.05)的真值源到底是哪个？这些阈值散落在哪几处？orchestrator代码声称读yaml却实际硬编，怎么判断和避免用错？", "source": "working-memory invest-skill-refactor-2026-06-26 真值源A1"}
+{"id": "pp-002", "project": "量子项目", "question": "上海量子城市项目找地选楼场景的数据一致性排查做了什么工作？为什么需要测绘院补全？临港原始数据有什么问题？", "source": "working-memory find-land-data-consistency-audit-2026-06-23"}
+{"id": "pp-003", "project": "量化回测优化", "question": "select-stock-pro项目当前进展到哪了？Autoresearch Phase 1试点在做什么？因子优化方向是什么？", "source": "MEMORY项目索引 量化回测优化"}
+{"id": "pp-004", "project": "Agent体系", "question": "Agent认知种子是什么概念？nuwa蒸馏产出的角色扮演Skill(149行)怎么转成可spawn的Agent认知种子(≤800 tokens)？双轨产出指什么？", "source": "working-memory agent-distillation-pipeline-2026-06-21"}
+{"id": "pp-005", "project": "知识工程", "question": "每次新对话CC是怎么知道该读哪个wiki synthesis的？wiki知识注入机制怎么工作？慢环什么时候自动触发、什么时候手动执行？", "source": "working-memory wiki-injection-v2 + slow-loop-mechanism"}
+{"id": "pp-006", "project": "知识工程", "question": "knowledge-engine项目把hooks/skills/agents做了机制与资产分离，机制层和资产层分别管什么？为什么资产层要可插拔？", "source": "memory knowledge-engine-project 项目定位"}
+{"id": "pp-007", "project": "投资跟踪", "question": "重远投资观(陈老师)的核心方法论是什么？他是怎么用企业营收中枢和传导链分析市场的？为什么强调楼市和股市的联动？", "source": "MEMORY投资跟踪关键词 重远投资观"}
+{"id": "pp-008", "project": "知识星球爬虫", "question": "知识星球爬虫现在用什么技术方案复活了？Playwright CDP直连API具体怎么绕过登录态？能抓重远投资观的星球精华文章吗？", "source": "MEMORY项目索引 知识星球爬虫(CDP复活)"}
+{"id": "pp-009", "project": "Agent体系", "question": "花叔的nuwa和darwin这两个skill分别干什么？nuwa蒸馏和darwin进化怎么配合形成Agent自进化闭环？和传统的Skill优化有什么不同？", "source": "memory huashu-skills-ecosystem-2026-06-21 nuwa/darwin调研"}
+{"id": "pp-010", "project": "知识工程", "question": "为什么说个人知识车间能让个人第一次同时成为知识的生产者、所有者、消费者？数据主权在Agent时代和Web2.0有什么本质不同？", "source": "working-memory personal-knowledge-workshop-paradigm 三位一体"}
+{"id": "pp-011", "project": "知识工程", "question": "什么A2A市场？为什么说Agent-to-Agent市场里标的要给Agent读而非给人看？这对知识库的数据形态有什么要求？", "source": "working-memory personal-knowledge-workshop-paradigm A2A最强论断"}
+{"id": "pp-012", "project": "项目管理方法论", "question": "指挥官的项目管理方法论融合了IPD和PMBOK，5层21领域46规范具体指什么？这套框架和传统单一方法论比优势在哪？", "source": "wiki/projects/项目管理方法论 IPD+PMBOK融合"}
+{"id": "pp-013", "project": "投资跟踪", "question": "invest的orchestrator是怎么工作的？它和专家Agent(陈老师/付鹏)怎么配合？orchestrator自己能决定加减仓品种吗，还是必须人来定？", "source": "working-memory invest-agent-system-pilot orchestrator"}
+{"id": "pp-014", "project": "Open Design", "question": "Open Design这个开源设计平台现在版本到哪了？它的定位和商用的设计工具(如Figma)有什么区别？为什么要自己做而不直接用现成的？", "source": "MEMORY项目索引 Open Design odesign"}
+{"id": "pp-015", "project": "知识工程", "question": "为什么说慢环现在定位偏减熵，而指挥官要的是增智？减熵和增智的区别是什么？跨域类比、提炼模式怎么在慢环里实现？", "source": "memory knowledge-chain-upgrade-direction 点3"}
+{"id": "pp-016", "project": "投资跟踪", "question": "持仓成本数据在多次减仓后为什么会失真？DB的cost_basis字段为什么不能直接用来算盈亏？正确做法是什么？", "source": "MEMORY反馈索引 持仓成本数据可靠性"}
+{"id": "pp-017", "project": "Agent体系", "question": "Agent交叉验证、元认知监控、决策追溯链这三道防线分别防什么类型的错误？为什么单个Agent不可靠但多Agent组合可以可靠？", "source": "memory agent-quality-assurance ECC公理3"}
+{"id": "pp-018", "project": "知识工程", "question": "为什么说wiki是认知笔记不是信息容器？LLM消化后的认知笔记和外部直接搬来的方法有什么不同？借鉴外部方法前为什么要先判层级？", "source": "MEMORY反馈索引 wiki-cognitive-notes-not-container"}

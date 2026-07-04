@@ -1,0 +1,26 @@
+# skills-management 常驻列表 — 朋友填写模板
+# 常驻 Skills 永久保留软连接。此 yaml 是单一事实源，skills-management SKILL.md 读它。
+#
+# ⚠️ 如你不使用 skills-management skill，本文件可忽略或删除整个 config/skills-management/。
+# 下面是示例结构，改成你自己的常驻 skills（按分类）。
+
+# 当前常驻数（供 skills-management SKILL.md 引用，避免列表与计数不一致）
+resident_count: 0
+last_aligned: ''
+
+# 常驻 Skills（按你的分类填，name 是 skill 目录名）
+resident:
+  示例分类:
+    - name: your-skill-name
+      note: 示例说明（改成你的）
+  # 文档处理:
+  #   - name: pdf
+  #   - name: docx
+
+# 可临时激活（源文件保留，按需 ln -s）
+temporary_activatable: []
+  # - name: some-skill
+  #   note: 示例
+
+# 已移除源文件（不再可用）
+removed_source: []

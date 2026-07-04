@@ -1,0 +1,13 @@
+{
+  "name": "tongle-marketplace",
+  "owner": {
+    "name": "commander"
+  },
+  "plugins": [
+    {
+      "name": "tongle",
+      "source": "./tongle",
+      "description": "tongle — 个人知识工程机制层：双环控制/记忆体系/慢环/Wiki追踪/Agent治理/守卫门禁。让 AI 真正懂你的个人知识车间。"
+    }
+  ]
+}

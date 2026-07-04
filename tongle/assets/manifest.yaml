@@ -1,0 +1,70 @@
+# tongle 资产清单 — release 模板版
+# 机制层做底座，资产层可插拔。下面登记资产模块，朋友按需保留/填写/删除。
+#
+# 接口强度三档：
+#   real_interface = 机制层有可执行消费方读 yaml，换值自动传播
+#   weak_interface = 机制层 L1 提示读取，可跳过
+#   doc_only       = 路径登记文档，无消费方，换值不传播
+
+meta:
+  version: 1.0.0
+  generated: 'release-template'
+  phase: '朋友按需填写/删除个人资产'
+
+# ═══ 资产模块清单 ═══
+assets:
+
+  # ── 投资域资产（如不用 invest skill 可整组删除）──
+  - id: invest_thresholds
+    path: config/invest/thresholds.yaml
+    type: config
+    domain: invest
+    interface: real_interface
+    content: 防守线/spawn触发条件/节流窗口
+    consumer: invest/SKILL.md（如装了 invest skill）
+    note: 朋友填自己的持仓阈值；不用 invest 则删除此条 + 对应 yaml
+
+  - id: invest_paths
+    path: config/invest/paths.yaml
+    type: config
+    domain: invest
+    interface: real_interface
+    content: zsxq_crawler/invest_agent_system 路径
+    consumer: invest/SKILL.md
+    note: 指向你本地的相关工程；不用则删除
+
+  # ── Skills 治理资产（ke 默认机制，建议保留）──
+  - id: skills_resident_list
+    path: config/skills-management/resident-skills.yaml
+    type: config
+    domain: skills-management
+    interface: real_interface
+    content: 常驻 skills 列表
+    consumer: skills-management/SKILL.md（如装了）
+    note: ke 默认常驻列表，朋友按自己的 skills 调整
+
+  # ── Wiki 治理资产 ──
+  - id: wiki_paths
+    path: config/wiki-management/paths.yaml
+    type: config
+    domain: wiki-management
+    interface: doc_only
+    content: wiki_vault/daemon/decay 路径登记
+    consumer: 无（文档身份，wiki_checks.py 走 env）
+    note: 路径登记文档；改 vault 路径用 WIKI_VAULT_PATH 环境变量
+
+  # ── 方法论资产（如不用 commander-perspective skill 可删除）──
+  - id: commander_methodology
+    path: assets/perspectives/commander.yaml
+    type: perspective
+    domain: commander
+    interface: weak_interface
+    content: 心智模型/启发式/红灯/局限/张力
+    source_of_truth: ''    # ← 填你方法论主源路径（不用则留空或删除此条）
+    consumer: commander-perspective/SKILL.md + distilled/commander.md（如装了）
+    note: 朋友蒸馏自己的方法论填入；不用 commander-perspective 则删除
+
+# ═══ 朋友按需 ═══
+# - 不用 invest：删除 config/invest/ + 上面 invest_thresholds/invest_paths 两条
+# - 不用 commander-perspective：删除 assets/perspectives/ + commander_methodology 条
+# - ke 核心机制（hooks/adapters/skills_resident_list）保留即工作
