@@ -176,20 +176,23 @@ total_v = g.get('total_violations', 0)
 
 parts = []
 if orphan_count > 0:
-    parts.append(f'{orphan_count}孤儿')
+    parts.append(f'{orphan_count} 无引用')
 if fm_bad > 0:
-    parts.append(f'{fm_bad}格式')
+    parts.append(f'{fm_bad} 格式错')
 if dangling_count > 0:
-    parts.append(f'{dangling_count}断链')
+    parts.append(f'{dangling_count} 断链')
 if index_over:
-    parts.append('索引超限')
+    parts.append('索引超长')
 if claude_over:
-    parts.append('CLAUDE超限')
+    parts.append('主配置超长')
 
 icon = '🔴' if severity == 'red' else '🟡'
 detail = ' '.join(parts) if parts else ''
-tip = '→ 检查 memory 健康' if severity == 'red' else '→ 有空处理'
-lines.append(f'{icon} Memory: {total_v}项违规({detail}) {tip}')
+detail_prefix = f'其中 {detail}，' if detail else ''
+if severity == 'red':
+    lines.append(f'{icon} 记忆库 {total_v} 项待整理，{detail_prefix}影响跨会话接续，需立即整理')
+else:
+    lines.append(f'{icon} 记忆库 {total_v} 项待整理，{detail_prefix}有空处理')
 
 # 更新提醒计数和时间
 g['reminder_count'] = g.get('reminder_count', 0) + 1
@@ -232,12 +235,10 @@ with open('$PENDING_FILE') as f:
 items = [t for t in d.get('unsynced', [])]
 filtered = [t for t in items if not any(k in t.lower() for k in snooze)]
 if filtered:
-    print(f'## ⚠️ Pending Wiki Sync ({len(filtered)})')
-    print()
-    print('以下 [synthesized] 主题缺少 Wiki 页面引用，建议在本次会话中同步：')
+    print(f'🟡 知识待沉淀 {len(filtered)} 条，新会话接不上，本次会话抽空归档：')
     print()
     for t in filtered:
-        print(f'- ⚠️ {t}')
+        print(f'- {t.replace("[synthesized]", "").strip()}')
 " 2>/dev/null)
     PENDING_COUNT=$(echo "$PENDING_SECTION" | grep -c '^- ⚠️' 2>/dev/null || echo 0)
     rm -f "$PENDING_FILE"
@@ -258,8 +259,8 @@ import json
 with open('$MAINT_MARKER') as f:
     d = json.load(f)
 issues = d.get('issues', '')
-print(f'🔴 维护门禁触发: {issues}')
-print('本次会话需执行知识维护（目录卫生/精简）')
+print(f'🔴 知识库该整理了，{issues}')
+print('本次会话抽空清理，去重和精简')
 " 2>/dev/null)
 fi
 
@@ -309,11 +310,11 @@ if os.path.exists(rl):
 
 parts = []
 if pending >= 5:
-    parts.append(f'⚠️待批阅 {pending}')
+    parts.append(f'待批阅 {pending} 条')
 if fail >= 5:
-    parts.append(f'经验值(周) +{succ} -{fail}')
+    parts.append(f'本周经验值 {succ} 成 {fail} 败')
 if parts:
-    print('🧭 ' + ' · '.join(parts))
+    print('🟡 ' + '，'.join(parts) + '，抽空处理')
 " 2>/dev/null)
 # ── 6.6 Wiki 健康检查 ──────────────────────────────────
 WIKI_CHECKS="$HOME/.claude/skills/wiki-management/scripts/wiki_checks.py"
@@ -344,22 +345,22 @@ if issues == 0:
     exit(0)
 
 # 严重度分级
-if fm_missing >= 10 or dead >= 5 or stale >= 10:
-    icon = '🔴'
-    tip = '→ 整理 wiki 笔记'
-else:
-    icon = '🟡'
-    tip = '→ 有空处理'
+is_red = fm_missing >= 10 or dead >= 5 or stale >= 10
+icon = '🔴' if is_red else '🟡'
 
 parts = []
-if fm_missing > 0: parts.append(f'{fm_missing}无fm')
-if fm_incomplete > 0: parts.append(f'{fm_incomplete}不完整')
-if dead > 0: parts.append(f'{dead}死链')
-if stale > 0: parts.append(f'{stale}过期')
-if sunset > 0: parts.append(f'{sunset}待日落')
+if fm_missing > 0: parts.append(f'{fm_missing} 缺元数据')
+if fm_incomplete > 0: parts.append(f'{fm_incomplete} 元数据不全')
+if dead > 0: parts.append(f'{dead} 断链')
+if stale > 0: parts.append(f'{stale} 过期')
+if sunset > 0: parts.append(f'{sunset} 待归档')
 
 detail = ' '.join(parts)
-print(f'{icon} Wiki: {total}页 {issues}项({detail}) {tip}')
+detail_prefix = f'其中 {detail}，' if detail else ''
+if is_red:
+    print(f'{icon} 知识库 {total} 页 {issues} 项待整理，{detail_prefix}影响知识查找，需立即整理')
+else:
+    print(f'{icon} 知识库 {total} 页 {issues} 项待整理，{detail_prefix}有空处理')
 " 2>/dev/null)
 fi
 
