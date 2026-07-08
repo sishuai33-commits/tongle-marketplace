@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.py\""
           },
           {
             "type": "command",
@@ -27,41 +27,10 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/memory-guard.sh\""
-          },
-          {
-            "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/ref-integrity-guard.py\""
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__obsidian__read.*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/wiki-track-read.sh\""
-          }
-        ]
-      },
-      {
-        "matcher": "Read|Skill",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/reuse-log.py\""
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/observe.sh\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-use.py\""
           }
         ]
       }
@@ -71,11 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-end-wiki-check.sh\""
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-end-discriminate.sh\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session-end.py\""
           }
         ]
       }
@@ -85,11 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/cost-guard.py\" hook"
-          },
-          {
-            "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/reuse-adoption-judge.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/stop.py\""
           }
         ]
       }

@@ -1,0 +1,32 @@
+# discard-patterns.yaml — 认脸主题级去重模式库（M2）
+# 从 cross-domain-extract 提取的 discard 理由种子初始化
+# human_confirmed: false 的不生效，人确认后改 true
+# discard-pattern-check.py 用 confirmed 模式匹配候选，标 discard_pattern_hit
+# 不自动 discard（守红线5人确认），只标记辅助人裁决策
+
+patterns:
+  - id: dp-001
+    keyword: "已毕业"
+    source_pattern: "new_candidate"
+    note: "候选主题已毕业至Wiki/memory，重复"
+    human_confirmed: true
+  - id: dp-002
+    keyword: "海外宏观实时"
+    source_pattern: "new_candidate"
+    note: "海外宏观实时数据类，discard高频"
+    human_confirmed: true
+  - id: dp-003
+    keyword: "已跟踪"
+    source_pattern: "file_change_candidate"
+    note: "ke机制层开发文档git+STATE已跟踪"
+    human_confirmed: true
+  - id: dp-004
+    keyword: "已归档"
+    source_pattern: "ima_candidate"
+    note: "已归档≠过时，IMA新归档可能有价值，待精确判据（如归档超N天未改）再生效"
+    human_confirmed: false
+  - id: dp-005
+    keyword: "正则宽匹配"
+    source_pattern: "transcript_candidate"
+    note: "正则宽匹配命中术语描述非真决策"
+    human_confirmed: true

@@ -139,16 +139,18 @@ function detectCriticalConfig(targetPath) {
     }
   }
   // 检查是否在 .claude/ 目录下
-  if (targetPath.includes('/.claude/') || targetPath.includes('\\.claude\\')) {
+  // Windows 兼容：反斜杠归一化为正斜杠，白名单统一查正斜杠形式（朋友反馈 bug2，2026-07-06止血）
+  const normPath = targetPath.replace(/\\/g, '/');
+  if (normPath.includes('/.claude/')) {
     // 白名单：CC 既定写入区不当 critical config（工作产物频繁迭代是预期行为）
     // - projects/*/memory/：知识进化既定流程（P1.0 加，memory 同会话多次 Edit 不卡死）
     // - plans/：plan 模式工作产物，迭代编辑是预期行为，非系统配置（阶段二反馈修复）
     // - agents/：Agent 定义文件，迭代是正常工作流，非系统配置（指挥官指示"agent 不应被阻挡"）
     //   注：仅跳过 critical_config 判定；凭证检测照跑（内含 sk-xxx 等密钥仍拦）。
     //   真配置（settings.json/CLAUDE.md/AGENTS.md）走 basename 命中分支不走此处，保护不破
-    if ((targetPath.includes('/.claude/projects/') && targetPath.includes('/memory/'))
-        || targetPath.includes('/.claude/plans/')
-        || targetPath.includes('/.claude/agents/')) {
+    if ((normPath.includes('/.claude/projects/') && normPath.includes('/memory/'))
+        || normPath.includes('/.claude/plans/')
+        || normPath.includes('/.claude/agents/')) {
       return null;
     }
     return path.basename(targetPath);
