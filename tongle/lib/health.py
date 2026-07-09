@@ -37,9 +37,9 @@ def _extract_type(path):
 
 
 def _low_adoption(reuse_log):
-    """连接点④路3：读 reuse-log adoption verdict，14天窗口样本≥3 且 avg<0.3 → 低采纳率"""
+    """连接点④路3：读 reuse-log adoption verdict，14天窗口样本≥3 且 avg<0.3 返回 (avg, n)，否则 None（truthy 兼容 maintenance_check）"""
     if not os.path.exists(reuse_log):
-        return False
+        return None
     cutoff = datetime.now(timezone.utc) - timedelta(days=14)
     rates = []
     for d in state.read_jsonl(reuse_log):
@@ -60,8 +60,11 @@ def _low_adoption(reuse_log):
         if t >= cutoff:
             rates.append(d["rate"])
     if len(rates) < 3:
-        return False  # 样本不足不判
-    return sum(rates) / len(rates) < 0.3
+        return None  # 样本不足不判
+    avg = sum(rates) / len(rates)
+    if avg >= 0.3:
+        return None  # 采纳率正常
+    return (avg, len(rates))
 
 
 def maintenance_check():
@@ -644,17 +647,63 @@ def _dashboard_stats(instincts_dir):
     return pending, succ, fail
 
 
-def dashboard(instincts_dir):
-    """触发式仪表盘（待批阅≥5 + 经验值周 fail≥5，原 §6.5b）
+_PENDING_LABELS = {
+    "file_change_candidate": "文件变更",
+    "new_candidate": "外部搜索",
+    "evolve_candidate": "演进",
+    "transcript_candidate": "对话",
+    "ima_candidate": "IMA",
+}
 
+
+def _pending_breakdown(instincts_dir):
+    """pending 候选按 pattern 分类统计，返回中文摘要（如 '文件变更40/外部搜索8'）。
+
+    报警价值要求：光报计数无法判断值不值得看，带分类才知道构成
+    （40 文件变更=噪音可忽略，8 外部搜索=值得裁决）。
+    """
+    from collections import Counter
+    pq = os.path.join(instincts_dir, "pending-queue.jsonl")
+    c = Counter()
+    if os.path.isfile(pq):
+        try:
+            with open(pq, encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        d = json.loads(line)
+                        if d.get('status') != 'resolved':
+                            c[d.get('pattern', '未知')] += 1
+                    except Exception:
+                        pass
+        except OSError:
+            pass
+    items = []
+    for pat, n in c.most_common():
+        label = _PENDING_LABELS.get(pat, pat)
+        items.append(f'{label}{n}')
+    return '/'.join(items)
+
+
+def dashboard(instincts_dir):
+    """触发式仪表盘（待批阅≥50 + 经验值周 fail≥5 + 低采纳率，原 §6.5b）
+
+    阈值 50（指挥官7/9反馈：≥5 太频繁打扰，拉到50且带分类才有价值）。
+    低采纳率沿用 _low_adoption 自带阈值（14天窗口 avg<0.3），不另设阈值（守7/9不增打扰决策）。
     都没触发返回空串（安静，守 concise-output）。
     """
     pending, succ, fail = _dashboard_stats(instincts_dir)
     parts = []
-    if pending >= 5:
-        parts.append(f'待批阅 {pending} 条')
+    if pending >= 50:
+        breakdown = _pending_breakdown(instincts_dir)
+        parts.append(f'待批阅 {pending} 条（{breakdown}）' if breakdown else f'待批阅 {pending} 条')
     if fail >= 5:
         parts.append(f'本周经验值 {succ} 成 {fail} 败')
+    low = _low_adoption(os.path.join(instincts_dir, "reuse-log.jsonl"))
+    if low:
+        parts.append(f'低采纳率（14天均值{low[0]:.2f}）')
     return '🟡 ' + '，'.join(parts) + '，抽空处理' if parts else ''
 
 
@@ -667,9 +716,10 @@ def alert_context(instincts_dir):
     """
     pending, succ, fail = _dashboard_stats(instincts_dir)
     parts = []
-    if pending >= 5:
+    if pending >= 50:
+        breakdown = _pending_breakdown(instincts_dir)
         parts.append(
-            f"待批阅 {pending} 条 = 判别候选队列 pending-queue.jsonl 中 status=pending 的条目，"
+            f"待批阅 {pending} 条（{breakdown}）= 判别候选队列 pending-queue.jsonl 中 status=pending 的条目，"
             f"待人裁决。处理命令 /ke-review，参数：<序号> <关系类型> <处置> [说明]，"
             f"关系类型=新增/演进/互补/冲突，处置=采纳/丢弃/隔离。"
             f"序号是 pending 条目里的 1-based 计数，每次裁决后重排。"
@@ -679,6 +729,14 @@ def alert_context(instincts_dir):
         parts.append(
             f"本周经验值 {succ} 成 {fail} 败 = reuse-log.jsonl 近7天 ok=False 计数。"
             f"失败多=判别经验采纳后复用效果差，需复盘经验质量。"
+            f"数据源 ~/.claude/instincts/reuse-log.jsonl"
+        )
+    low = _low_adoption(os.path.join(instincts_dir, "reuse-log.jsonl"))
+    if low:
+        parts.append(
+            f"低采纳率（14天均值{low[0]:.2f}，{low[1]}样本）= reuse-log.jsonl 中 kind=adoption 记录的 rate 均值<0.3，"
+            f"即注入的知识AI采纳率低（注入了没用）。"
+            f"处理：检查低采纳注入是否该降级（走慢环或对话内请示调整注入策略）。"
             f"数据源 ~/.claude/instincts/reuse-log.jsonl"
         )
     if not parts:

@@ -97,15 +97,14 @@ def main():
     # §6.7 首次运行/版本变更检测（仪式感，v1.3.0 阶段5）
     first_run = health.first_run_check(instincts_dir)
 
-    # §6.8 采集可见性（仪式感，v1.3.0 阶段5 5.5）
-    collection_vis = health.collection_visibility(instincts_dir)
+    # §6.8 采集可见性已移除（指挥官7/9反馈：📊上次采集N条打扰无价值，collection_visibility 函数保留待慢环定夺）
 
     # §7 输出（注入 CC 上下文）
     elapsed = int(time.time() * 1000) - start_ts
 
     # additional = 用户可见提醒（首次/仪表盘最前，触发式）
     additional = ""
-    for section in (first_run, dashboard, collection_vis, mem_health, pending_section, wiki_health, maint_section):
+    for section in (first_run, dashboard, mem_health, pending_section, wiki_health, maint_section):
         if section:
             additional = additional + "\n\n" + section if additional else section
 

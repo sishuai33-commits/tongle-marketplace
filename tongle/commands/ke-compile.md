@@ -69,6 +69,11 @@ ke 编译环执行器：把 pending-compile.jsonl 待编译条目 Ingest 成 wik
 - **全量 Workflow = 按需非日常**：≥5 页或跨域重构走 `wiki-full-compile.js`（30 Agent ~750K token，见 `~/.claude/workflows/`）
 - 本命令的 prep/finalize 是脚本机械部分（0 token），S1/S2 是 CC 按 SKILL.md 执行（AI 驱动）
 
+## 建议下一步（编译完 AI 主动建议）
+- 编译完 wiki 页面 -> `/ke-health` 确认 wiki 健康全绿（新页面 frontmatter/死链/索引）
+- 全绿 -> 编译环闭环，新 wiki 页面下次会话经消费环注入
+- 多页待编译 -> 继续本命令编下一条（idx 从大到小）
+
 ## 关联
 - `skills/wiki-management/SKILL.md` §3.0（硬约束）/ §3.1（Ingest 两阶段）
 - `lib/compile.py` prep/finalize（脚本机械部分）

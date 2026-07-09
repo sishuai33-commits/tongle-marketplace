@@ -30,3 +30,28 @@ patterns:
     source_pattern: "transcript_candidate"
     note: "正则宽匹配命中术语描述非真决策"
     human_confirmed: true
+  - id: dp-006
+    keyword: "/Users/sishuai/Documents/My_Co"
+    source_pattern: "file_change_candidate"
+    note: "ke项目内部开发文档(v1.4.0审查报告)，非个人知识"
+    human_confirmed: false
+  - id: dp-007
+    keyword: "7408191457471418"
+    source_pattern: "ima_candidate"
+    note: "IMA笔记日常更新(归档文件夹)，有需要再查"
+    human_confirmed: false
+  - id: dp-008
+    keyword: "/Users/sishuai/Documents/My_Co"
+    source_pattern: "file_change_candidate"
+    note: "ke项目内部开发文档(v1.4.0方案)，非个人知识"
+    human_confirmed: false
+  - id: dp-009
+    keyword: "VIX 美元指数 DXY 美30年国债收益率 实时数值 20"
+    source_pattern: "new_candidate"
+    note: "一次性VIX/DXY实时数值搜索，非持久认知"
+    human_confirmed: false
+  - id: dp-010
+    keyword: "A股 科创50 半导体 重大政策 新闻 2026年7月7日至"
+    source_pattern: "new_candidate"
+    note: "一次性A股政策新闻搜索碎片，非持久认知"
+    human_confirmed: false
