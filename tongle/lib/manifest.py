@@ -402,30 +402,60 @@ def build(strategy="all", project=None, limit=3):
     lines.append("  匹配: 提及项目名/关键词/关联实体→读synthesis.md; 具体概念→读对应concept页; 模糊→读synthesis.md")
     lines.append("")
 
-    # WM 焦点强提示（前置置顶）：内容在场≠被采用（反模式②），置顶+英文别名+路径强引导 CC 读对 syn
+    # 焦点/非焦点分层（对齐 CC 按信息密度自然选读）：焦点给完整描述（路径+关键词+关联），
+    # 非焦点折叠为单行列表（只名+优先级，可发现不吸睛）。无焦点时（eval project/access 或
+    # WM 无焦点）保持原全量清单格式。
+    d_map = {d['name']: d for d in valid_domains}
     if wm_focus:
-        for pname in wm_focus:
-            kws = project_keywords_map.get(pname, [])
+        focus_domains = [d_map[p] for p in wm_focus if p in d_map]
+        other_domains = [d for d in valid_domains if d['name'] not in set(wm_focus)]
+    else:
+        focus_domains = []
+        other_domains = valid_domains
+
+    if focus_domains:
+        lines.append("  ## 本次焦点（信息密度高，优先读）")
+        for d in focus_domains:
+            tag = " [轻量]" if d["light"] else ""
+            kws = d['keywords'] if d['keywords'] else []
             en_alias = next((k for k in kws if re.match(r'^[a-zA-Z][a-zA-Z0-9_-]+$', k)), None)
             alias_str = f"({en_alias})" if en_alias else ""
-            lines.append(f"  ⭐ 本次会话疑似涉及: {pname}{alias_str} — 优先读 projects/{pname}/synthesis.md")
+            kw_str = " ".join(kws) if kws else "(无)"
+            ent_str = " ".join(d['entities'][:4]) if d['entities'] else "(无)"
+            lines.append(f"  ⭐ {d['priority']} · {d['name']}{alias_str}{tag} (更新:{d['freshness_str']}) - projects/{d['name']}/synthesis.md")
+            lines.append(f"      关键词: {kw_str} | 关联: {ent_str}")
         lines.append("")
 
-    for d in valid_domains:
-        tag = " [轻量]" if d["light"] else ""
-        kw_str = " ".join(d['keywords']) if d['keywords'] else ""
-        ent_str = ""
-        if d['entities']:
-            ent_names = d['entities'][:4]
-            ent_str = " #关联:" + " ".join(ent_names)
-        freshness = f" (更新:{d['freshness_str']})"
-        # L0 索引：只留可发现性元数据，去 status 业务描述
-        line = f"  {d['priority']} · {d['name']}{tag}{freshness}"
-        if ent_str:
-            line += ent_str
-        if kw_str:
-            line += f" #关键词:{kw_str}"
-        lines.append(line)
+    if other_domains:
+        if focus_domains:
+            # 非焦点折叠：单行列表，可发现不吸睛（关键词藏到 synthesis 内，CC 提及项目名才读）
+            # 非焦点：每项目1行保留关键词可匹配，去关联实体降密度（焦点有路径独占行+关联+⭐更密）
+            lines.append("  ## 其他项目（提及项目名/关键词时读 projects/<名>/synthesis.md）")
+            for d in other_domains:
+                tag = " [轻量]" if d["light"] else ""
+                kw_str = " ".join(d['keywords']) if d['keywords'] else ""
+                freshness = f" (更新:{d['freshness_str']})"
+                line = f"  {d['priority']} · {d['name']}{tag}{freshness}"
+                if kw_str:
+                    line += f" #关键词:{kw_str}"
+                lines.append(line)
+            lines.append("")
+        else:
+            # 无焦点：保持原全量清单格式（eval project/access 或 WM 无焦点）
+            for d in other_domains:
+                tag = " [轻量]" if d["light"] else ""
+                kw_str = " ".join(d['keywords']) if d['keywords'] else ""
+                ent_str = ""
+                if d['entities']:
+                    ent_names = d['entities'][:4]
+                    ent_str = " #关联:" + " ".join(ent_names)
+                freshness = f" (更新:{d['freshness_str']})"
+                line = f"  {d['priority']} · {d['name']}{tag}{freshness}"
+                if ent_str:
+                    line += ent_str
+                if kw_str:
+                    line += f" #关键词:{kw_str}"
+                lines.append(line)
 
     # 缺失项目静默标注
     if missing_domains:

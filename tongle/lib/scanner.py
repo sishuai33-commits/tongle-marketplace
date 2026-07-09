@@ -57,8 +57,11 @@ IMA_TIMEOUT = 8  # 网络 timeout 秒（实测单次 0.429s，留余量；fail-o
 
 # === 源2 transcript：决策动作信号正则（本项目真实用语，分两类） ===
 # decision=决策/采纳类（新增认知落点），revision=修正/推翻类（已有认知修订）
-# 高置信词优先（守简单方案优先：宽匹配+人裁看上下文，不强建语义判别器守红线②）
-DECISION_RE = re.compile(r"指挥官定|拍板|决定|采纳|否决|砍掉|暂停|降级|放弃")
+# D'分级标记（宽匹配+人裁兜底不变，加 confidence 供人裁 high 优先 + 经验积累后自动降噪）：
+#   high=指挥官定/拍板/否决/砍掉（明确决策动作，真决策率高）
+#   low=决定/采纳/暂停/降级/放弃（开发态高频撞词，需人裁甄别）
+DECISION_HIGH_RE = re.compile(r"指挥官定|拍板|否决|砍掉")
+DECISION_LOW_RE = re.compile(r"决定|采纳|暂停|降级|放弃")
 REVISION_RE = re.compile(r"推翻|纠正|修正|纠偏|翻案|改回|回退")
 
 # 游标/输出完整路径（instincts/ 下，与原 source-scanner.py 常量一致保测试兼容）
@@ -180,6 +183,25 @@ def extract_context(text, match_start, span=60):
     return text[s:e].replace("\n", " ").strip()
 
 
+def _is_review_session(transcript_path):
+    """识别批阅会话跳过采集（防自生成循环）。
+
+    批阅会话高频含决策词（采纳/修正/纠正/指挥官定），但这些是裁决操作的
+    话语=判别产物，非判别原料。采集回流致 pending-queue 自我繁殖
+    （上轮批阅自产8条候选->下轮再裁->循环）。判别产物不回流为原料。
+    宽匹配 discriminate-resolve.py：顺带跳过"讨论ke-review文档"的会话，
+    同属开发态噪声，跳过无妨；不引入关键词维护成本（守简单）。
+    """
+    try:
+        with open(transcript_path, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if "discriminate-resolve.py" in line:
+                    return True
+    except OSError:
+        pass
+    return False
+
+
 def scan_transcript(transcript_path, session_id):
     """源2：扫 transcript 提取决策动作信号，写 source-observations.jsonl。
 
@@ -193,9 +215,12 @@ def scan_transcript(transcript_path, session_id):
             revision 优先于 decision（修正类更稀缺高价值），本次运行内去重
             （跨运行由 collector pending/discard 兜底，同源1 行为）。
     fail-open：transcript 不存在/解析失败返回 0（不阻断 SessionEnd）。
+    防循环：批阅会话跳过采集（_is_review_session），判别产物不回流为原料。
     """
     if not transcript_path or not os.path.exists(transcript_path):
         return 0
+    if _is_review_session(transcript_path):
+        return 0  # 批阅会话不采集，防自生成循环
     now_ts = now_utc_iso()
     seen = set()  # 本次运行内去重 (session, action_type, context_key)
     count = 0
@@ -217,15 +242,23 @@ def scan_transcript(transcript_path, session_id):
                 text = "\n".join(t for t in texts if t)
                 if not text.strip():
                     continue
-                # 决策动作判别：revision 优先（更稀缺），再 decision
+                # 决策动作判别：revision 优先（更稀缺），再 decision high/low（D'分级）
                 action_type = None
+                confidence = None
                 match = REVISION_RE.search(text)
                 if match:
                     action_type = "revision"
+                    confidence = "high"  # revision 更稀缺高价值
                 else:
-                    match = DECISION_RE.search(text)
+                    match = DECISION_HIGH_RE.search(text)
                     if match:
                         action_type = "decision"
+                        confidence = "high"
+                    else:
+                        match = DECISION_LOW_RE.search(text)
+                        if match:
+                            action_type = "decision"
+                            confidence = "low"
                 if not action_type:
                     continue
                 context = extract_context(text, match.start())
@@ -240,6 +273,7 @@ def scan_transcript(transcript_path, session_id):
                     "signal_type": "decision_signal",
                     "session": session_id,
                     "action_type": action_type,
+                    "confidence": confidence,
                     "context": context,
                     "transcript_path": transcript_path,
                 })

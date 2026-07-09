@@ -152,17 +152,56 @@ def append_discard_pattern(keyword, source_pattern, note=""):
 
 # ---------- 编排 ----------
 
+def list_pending_by_confidence():
+    """无参显示 pending 候选，按 confidence 排序（high 优先，D'分级）。
+
+    index 为 pending 候选原始 1-based 序号（resolve <index> 直接用）。
+    """
+    raws, parsed = load_pending()
+    pending = [(n, d) for n, d in enumerate(
+        (d for d in parsed if d and d.get("status") == "pending"), 1)]
+    if not pending:
+        print("# pending-queue 无待裁候选")
+        return
+    def conf_rank(d):
+        ev = d.get("evidence", {}) or {}
+        return 0 if ev.get("confidence", "high") == "high" else 1
+    pending_sorted = sorted(pending, key=lambda x: (conf_rank(x[1]), x[0]))
+    hi = sum(1 for _, d in pending_sorted if conf_rank(d) == 0)
+    print(f"# 待裁 {len(pending)} 条（high {hi} / low {len(pending)-hi}，high 优先）")
+    for idx, d in pending_sorted:
+        ev = d.get("evidence", {}) or {}
+        conf = ev.get("confidence", "high")
+        pattern = d.get("pattern", "?")
+        if pattern == "transcript_candidate":
+            summary = str(ev.get("context", ""))[:60]
+        elif pattern == "new_candidate":
+            summary = str(ev.get("query", ""))[:60]
+        elif pattern == "file_change_candidate":
+            summary = str(ev.get("path", ""))[:60]
+        else:
+            summary = str(ev.get("note", ""))[:60]
+        marker = "⭐" if conf == "high" else "  "
+        print(f"{marker} [{idx}] {pattern} {summary}")
+    print(f"# 裁决: discriminate-resolve.py <index> <new|evolve|complement|conflict> <adopt|discard|isolate> [note]")
+
+
 def main():
     """CLI 入口：python -m lib.review <index> <relation_type> <disposition> [note]
 
+    无参：显示 pending 列表（high 优先，D'分级）。
     index: pending-queue.jsonl 中 pending 候选的行号（1-based，从 pending 列表算）
     relation_type: new|evolve|complement|conflict（关系类型，人判）
     disposition: adopt|discard|isolate（处置：采纳/丢弃/隔离，人判）
     """
+    if len(sys.argv) == 1:
+        list_pending_by_confidence()
+        sys.exit(0)
     if len(sys.argv) < 4:
         print("用法: discriminate-resolve.py <index> <relation_type> <disposition> [note]", file=sys.stderr)
         print("  relation_type: new|evolve|complement|conflict", file=sys.stderr)
         print("  disposition: adopt|discard|isolate", file=sys.stderr)
+        print("  无参显示 pending 列表（high 优先）", file=sys.stderr)
         sys.exit(2)
 
     try:

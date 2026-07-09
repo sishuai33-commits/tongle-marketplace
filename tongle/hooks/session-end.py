@@ -18,7 +18,7 @@ import sys
 _PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PLUGIN_ROOT not in sys.path:
     sys.path.insert(0, _PLUGIN_ROOT)
-from lib import paths, discriminate
+from lib import paths, discriminate, compile
 
 os.environ.setdefault("PYTHONUTF8", "1")
 
@@ -32,37 +32,16 @@ def _run_quiet(cmd, timeout=15):
 
 # ── §1 wiki-check ──────────────────────────────────────
 def _wiki_check():
-    wm_file = os.path.join(paths.cc_memory_dir(), "working-memory.md")
-    if not os.path.isfile(wm_file):
-        return
+    """§1 wiki-check：working-memory [synthesized] 无 wiki ref -> pending-compile.jsonl 持久化队列
+
+    v1.3.0 改：原写一次性 .pending-wiki-sync marker（session-start 读后删），无编译
+    执行器接。改持久化 pending-compile.jsonl，/ke-compile 编译后标 compiled。
+    逻辑下沉 lib/compile.collect_from_working_memory 可测。
+    """
     try:
-        with open(wm_file, encoding="utf-8", errors="replace") as f:
-            wm = f.read()
-    except OSError:
-        return
-    topics = []
-    current = None
-    for line in wm.split('\n'):
-        if line.startswith('## Topic:'):
-            if current:
-                topics.append(current)
-            current = {'title': line.replace('## Topic:', '').strip(), 'has_wiki_ref': False}
-        elif current:
-            s = line.strip()
-            if s.startswith('wiki:') or s.startswith('- wiki:'):
-                current['has_wiki_ref'] = True
-    if current:
-        topics.append(current)
-    unsynced = [t['title'] for t in topics
-                if '[synthesized]' in t['title'] and not t['has_wiki_ref']]
-    if unsynced:
-        marker = paths.instincts_file(".pending-wiki-sync")
-        try:
-            os.makedirs(os.path.dirname(marker), exist_ok=True)
-            with open(marker, "w", encoding="utf-8") as f:
-                json.dump({"unsynced": unsynced, "count": len(unsynced)}, f)
-        except OSError:
-            pass
+        compile.collect_from_working_memory(paths.cc_memory_dir(), paths.instincts_dir())
+    except Exception as e:
+        print(f"[session-end] WARN: wiki-check 采集失败 {e}", file=sys.stderr)
 
 
 # ── §2 discriminate 串联 ───────────────────────────────

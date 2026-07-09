@@ -565,9 +565,13 @@ def memory_alert(instincts_dir):
 
 
 def pending_wiki_sync(instincts_dir, snooze_file):
-    """Pending Wiki Sync 检查（原 §6），返回 (section_str, count)"""
-    pending_file = os.path.join(instincts_dir, ".pending-wiki-sync")
-    if not os.path.isfile(pending_file):
+    """Pending Wiki Sync 检查（原 §6），返回 (section_str, count)
+
+    v1.3.0 改：读 pending-compile.jsonl 持久化队列（非一次性 .pending-wiki-sync marker），
+    只数 status=pending 的，不删（/ke-compile 编译后标 compiled）。
+    """
+    pc_file = os.path.join(instincts_dir, "pending-compile.jsonl")
+    if not os.path.isfile(pc_file):
         return "", 0
     snooze = []
     if os.path.isfile(snooze_file):
@@ -577,31 +581,31 @@ def pending_wiki_sync(instincts_dir, snooze_file):
                 if not k or k.startswith('#') or k == 'wiki-health':
                     continue
                 snooze.append(k.lower())
+    titles = []
     try:
-        with open(pending_file, encoding="utf-8", errors="replace") as f:
-            d = json.load(f)
-    except (OSError, json.JSONDecodeError):
-        d = {}
-    filtered = [t for t in d.get('unsynced', [])
-                if not any(k in t.lower() for k in snooze)]
-    try:
-        os.remove(pending_file)
+        with open(pc_file, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    d = json.loads(line)
+                    if d.get("status") == "pending" and d.get("title"):
+                        titles.append(d["title"])
+                except json.JSONDecodeError:
+                    pass
     except OSError:
         pass
+    filtered = [t for t in titles if not any(k in t.lower() for k in snooze)]
     if not filtered:
         return "", 0
     lines = [f'🟡 知识待沉淀 {len(filtered)} 条，新会话接不上，本次会话抽空归档：', '']
     for t in filtered:
-        t_clean = t.replace('[synthesized]', '').strip()
-        lines.append(f'- {t_clean}')
+        lines.append(f'- {t}')
     return '\n'.join(lines), len(filtered)
 
 
-def dashboard(instincts_dir):
-    """触发式仪表盘（待批阅≥5 + 经验值周 fail≥5，原 §6.5b）
-
-    都没触发返回空串（安静，守 concise-output）。
-    """
+def _dashboard_stats(instincts_dir):
+    """dashboard 统计：返回 (pending, succ, fail)"""
     pending = 0
     pq = os.path.join(instincts_dir, "pending-queue.jsonl")
     if os.path.isfile(pq):
@@ -637,6 +641,15 @@ def dashboard(instincts_dir):
                                 fail += 1
                 except Exception:
                     pass
+    return pending, succ, fail
+
+
+def dashboard(instincts_dir):
+    """触发式仪表盘（待批阅≥5 + 经验值周 fail≥5，原 §6.5b）
+
+    都没触发返回空串（安静，守 concise-output）。
+    """
+    pending, succ, fail = _dashboard_stats(instincts_dir)
     parts = []
     if pending >= 5:
         parts.append(f'待批阅 {pending} 条')
@@ -645,10 +658,146 @@ def dashboard(instincts_dir):
     return '🟡 ' + '，'.join(parts) + '，抽空处理' if parts else ''
 
 
+def alert_context(instincts_dir):
+    """报警自解释（silent 注入，CC 后台自知，不进人可见对话）
+
+    指挥官7/8反馈：仪表盘弹"待批阅 N 条"只有计数，新会话AI要查4轮才搞清对象。
+    本函数返回报警的 silent 自解释，让 CC 知道"是什么/在哪/怎么处理"，不用查资料。
+    人可见文案（dashboard()）不变，守 feedback-concise-output。
+    """
+    pending, succ, fail = _dashboard_stats(instincts_dir)
+    parts = []
+    if pending >= 5:
+        parts.append(
+            f"待批阅 {pending} 条 = 判别候选队列 pending-queue.jsonl 中 status=pending 的条目，"
+            f"待人裁决。处理命令 /ke-review，参数：<序号> <关系类型> <处置> [说明]，"
+            f"关系类型=新增/演进/互补/冲突，处置=采纳/丢弃/隔离。"
+            f"序号是 pending 条目里的 1-based 计数，每次裁决后重排。"
+            f"数据源 ~/.claude/instincts/pending-queue.jsonl"
+        )
+    if fail >= 5:
+        parts.append(
+            f"本周经验值 {succ} 成 {fail} 败 = reuse-log.jsonl 近7天 ok=False 计数。"
+            f"失败多=判别经验采纳后复用效果差，需复盘经验质量。"
+            f"数据源 ~/.claude/instincts/reuse-log.jsonl"
+        )
+    if not parts:
+        return ""
+    return "# 报警自解释（CC 后台自知，不用查资料）\n" + "\n".join(f"- {p}" for p in parts)
+
+
+def first_run_check(instincts_dir):
+    """首次运行/版本变更检测（v1.3.0 阶段5 仪式感，plan 决策5）
+
+    读 plugin.json version 与 .installed-version marker 对比：
+    - 无 .installed-version -> 首次：写 marker=version，返回欢迎 section
+    - != version -> 更新：更新 marker=version，返回变更 section
+    - == version -> 正常：返回 ""（不打扰，守 concise-output）
+
+    fail-open：读不到 version/写 marker 失败不阻塞会话启动。
+    """
+    plugin_json = os.path.join(paths.plugin_root(), ".claude-plugin", "plugin.json")
+    try:
+        with open(plugin_json, encoding="utf-8") as f:
+            version = json.load(f).get("version", "")
+    except (OSError, json.JSONDecodeError):
+        return ""
+    if not version:
+        return ""
+
+    iv_path = os.path.join(instincts_dir, ".installed-version")
+    installed = None
+    try:
+        with open(iv_path, encoding="utf-8", errors="replace") as f:
+            installed = f.read().strip()
+    except OSError:
+        pass  # 首次（文件不存在）
+
+    if installed == version:
+        return ""  # 正常态不打扰
+
+    # 首次或更新：写 marker
+    try:
+        with open(iv_path, "w", encoding="utf-8") as f:
+            f.write(version)
+    except OSError:
+        pass  # 写失败 fail-open
+
+    if installed is None:
+        return (
+            f"👋 欢迎使用 tongle 知识工程（v{version}）。\n"
+            f"4 命令：/ke-health /ke-review /ke-collect /ke-compile\n"
+            f"3 步验证：/ke-health 全绿 -> 聊两句看 AI 带入知识 -> /ke-review /ke-collect 看候选\n"
+            f"采集自动（会话结束扫变更），编译手动（/ke-compile）"
+        )
+    # 5.4 更新：版本号 + 变更要点（CHANGELOG）+ 重初始化提示（major 变化）
+    note = ""
+    changelog = os.path.join(paths.plugin_root(), "dev", "releases", "CHANGELOG.md")
+    try:
+        with open(changelog, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if line.strip().startswith(f"## v{version}"):
+                    s = line.strip()
+                    if "（" in s and "）" in s:
+                        note = s[s.index("（") + 1:s.rindex("）")]
+                    else:
+                        note = s.replace(f"## v{version}", "").strip(" -")
+                    break
+    except OSError:
+        pass
+    reinit = ""
+    try:
+        if installed.split(".")[0] != version.split(".")[0]:
+            reinit = "major 版本变化，建议跑 /ke-health 确认"
+    except Exception:
+        pass
+    parts = [f"🔔 tongle 已更新到 v{version}（原 {installed}）。"]
+    if note:
+        parts.append(f"变更要点：{note}")
+    if reinit:
+        parts.append(reinit)
+    return "\n".join(parts)
+
+
+def collection_visibility(instincts_dir):
+    """采集可见性（v1.3.0 阶段5 仪式感，plan 5.5）
+
+    每次会话显示"上次采集 N 条候选 / M 条待编译"（读 pending-queue + pending-compile）。
+    都为 0 返回 ""（安静，守 concise-output）。
+    """
+    pending_candidates, _, _ = _dashboard_stats(instincts_dir)  # N: 待批阅候选（未resolved）
+    pending_compile = 0
+    pc = os.path.join(instincts_dir, "pending-compile.jsonl")
+    if os.path.isfile(pc):
+        try:
+            with open(pc, encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        if json.loads(line).get('status') == 'pending':
+                            pending_compile += 1
+                    except Exception:
+                        pass
+        except OSError:
+            pass
+    parts = []
+    if pending_candidates > 0:
+        parts.append(f"上次采集 {pending_candidates} 条候选")
+    if pending_compile > 0:
+        parts.append(f"{pending_compile} 条待编译")
+    return '📊 ' + '，'.join(parts) if parts else ''
+
+
 def wiki_health(snooze_file):
     """Wiki 健康检查（原 §6.6，调 wiki_checks.py --json）"""
-    wiki_checks = os.path.join(paths.home(), ".claude", "skills",
+    # 优先 plugin 自带 skill（v1.3.0 内建），fallback ~/.claude/skills/（旧装法/独立装）
+    wiki_checks = os.path.join(paths.plugin_root(), "skills",
                                "wiki-management", "scripts", "wiki_checks.py")
+    if not os.path.isfile(wiki_checks):
+        wiki_checks = os.path.join(paths.home(), ".claude", "skills",
+                                   "wiki-management", "scripts", "wiki_checks.py")
     if not os.path.isfile(wiki_checks):
         return ""
     # .alert-snooze 含 wiki-health 行 → 整段静音

@@ -185,15 +185,17 @@ def build_file_change_evidence(d):
 
 
 def build_transcript_evidence(d):
-    """transcript_candidate：对话决策动作信号 evidence"""
+    """transcript_candidate：对话决策动作信号 evidence（D'带 confidence 分级）"""
     session = d.get("session", "")
     action_type = d.get("action_type", "")
     context = d.get("context", "")
+    confidence = d.get("confidence", "high")  # 默认 high（兼容旧 source-observations 无字段）
     signal_key = f"{session}|{action_type}|{context[:40]}"
     return {
         "signal_key": signal_key,
         "session": session,
         "action_type": action_type,  # decision / revision
+        "confidence": confidence,  # high/low（D'分级，人裁 high 优先，经验积累后自动降噪）
         "context": context,  # 匹配处前后60字片段（人裁定位，不总结语义守红线⑥）
         "transcript_path": d.get("transcript_path", ""),
         "note": "对话含决策动作(决策/修正)，潜在认知演进/判别经验原料，留人裁关系类型+是否入wiki/experience",

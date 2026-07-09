@@ -94,17 +94,25 @@ def main():
     # §6.6 Wiki 健康
     wiki_health = health.wiki_health(snooze_file)
 
+    # §6.7 首次运行/版本变更检测（仪式感，v1.3.0 阶段5）
+    first_run = health.first_run_check(instincts_dir)
+
+    # §6.8 采集可见性（仪式感，v1.3.0 阶段5 5.5）
+    collection_vis = health.collection_visibility(instincts_dir)
+
     # §7 输出（注入 CC 上下文）
     elapsed = int(time.time() * 1000) - start_ts
 
-    # additional = 用户可见提醒（仪表盘最前，触发式）
+    # additional = 用户可见提醒（首次/仪表盘最前，触发式）
     additional = ""
-    for section in (dashboard, mem_health, pending_section, wiki_health, maint_section):
+    for section in (first_run, dashboard, collection_vis, mem_health, pending_section, wiki_health, maint_section):
         if section:
             additional = additional + "\n\n" + section if additional else section
 
-    # silent = 静默注入（Wiki 资产路由，CC 自知）
-    silent = asset_manifest
+    # silent = 静默注入（Wiki 资产路由 + 报警自解释，CC 自知，不进人可见对话）
+    alert_ctx = health.alert_context(instincts_dir)
+    silent_parts = [p for p in (asset_manifest, alert_ctx) if p]
+    silent = "\n\n".join(silent_parts)
     combined = silent + "\n\n" + additional if silent and additional else (silent or additional)
 
     sys_msg = additional.strip()
