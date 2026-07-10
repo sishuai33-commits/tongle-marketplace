@@ -15,7 +15,7 @@ set -eo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 WIKI_CHECKS="$SCRIPT_DIR/scripts/wiki_checks.py"
-WIKI_ROOT="${WIKI_ROOT:-$HOME/Documents/Obsidian Vault/wiki}"
+WIKI_ROOT="${WIKI_VAULT_PATH:-$HOME/Documents/Obsidian Vault}/wiki"  # v1.5.1: 统一用 WIKI_VAULT_PATH（和 daemon/wiki_checks.py 一致）
 JSON_OUTPUT=false
 FIX_MODE=false
 

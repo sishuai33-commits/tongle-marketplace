@@ -16,14 +16,16 @@ export const meta = {
 // 治本(2026-07-04): today 变量注入 prompt，不靠 LLM 自己算日期
 // ponytail: bash date 替代 new Date()，workflow sandbox 禁 Date.now()
 const TODAY = (await agent(`bash: date +%Y-%m-%d`, { model: 'haiku', label: 'today' })).trim()
+const PLUGIN_DIR = (await agent(`bash: d=$(find ~/.claude/plugins/cache -maxdepth 1 -name "tongle@*" -type d 2>/dev/null | head -1); [ -z "$d" ] && d="$HOME/.claude/skills/knowledge-engine"; echo "$d"`, { model: 'haiku', label: 'plugin_dir' })).trim()
 
 // 路径配置（env化，朋友环境通过env覆盖；bash自解析，规避sandbox禁process.env）
 const VAULT = '${WIKI_VAULT_PATH:-$HOME/Documents/Obsidian Vault}'
-const DAEMON = VAULT + '/wiki/.wiki-daemon.py'
-const LINK_ANALYZER = VAULT + '/wiki/.link-analyzer.py'
+const DAEMON = PLUGIN_DIR + '/adapters/obsidian/.wiki-daemon.py'
+const LINK_ANALYZER = PLUGIN_DIR + '/adapters/obsidian/.link-analyzer.py'
 const LAST_COMP = VAULT + '/wiki/.last_compilation'
 const MEMORY_DIR = '${CC_MEMORY_DIR:-$HOME/.claude/projects/-Users-sishuai/memory}'
 const EXTRA_SOURCES = '${KE_EXTRA_SOURCES:-/nonexistent}'
+const WIKI_CHECKS = PLUGIN_DIR + '/skills/wiki-management/scripts/wiki_checks.py'
 
 
 // 参数解析: --scope all|project (默认all), --name <项目名> (scope=project时必填)
@@ -224,7 +226,7 @@ const preflight = await agent(`
      记录修复数量
 
   4. 编译前硬约束检查（输出 JSON 供后续 Phase 消费）:
-     python3 ~/.claude/skills/wiki-management/scripts/wiki_checks.py --fix --json > /tmp/wiki_checks_result.json
+     python3 "${WIKI_CHECKS}" --fix --json > /tmp/wiki_checks_result.json
      记录: fixed 数量, needs_ai 数量, dead_links.dead 数量（含 fixable 标记）
 
   5. 启动入链分析:
@@ -556,7 +558,7 @@ const [vocabResult, indexResult] = await parallel([
 
 // 计数自洽（脚本完成，0 Agent overhead）
 const countCheckOut = await agent(`
-  bash: python3 ~/.claude/skills/wiki-management/scripts/wiki_checks.py --counts-selfcheck
+  bash: python3 "${WIKI_CHECKS}" --counts-selfcheck
   返回 JSON。
 `, { model: 'haiku', label: 'verify:counts-script' })
 
@@ -590,7 +592,7 @@ const [v1, v2, v3] = await parallel([
     独立验证者 V3 — 死链验证 + 逻辑一致性（脚本优先，Agent 只判语义）。
 
     A. 死链验证（基于脚本输出，不重新全量扫描）:
-    1. bash: python3 ~/.claude/skills/wiki-management/scripts/wiki_checks.py --json 2>/dev/null | python3 -c "
+    1. bash: python3 "${WIKI_CHECKS}" --json 2>/dev/null | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
 dead=d.get('dead_links',{}).get('dead',[])

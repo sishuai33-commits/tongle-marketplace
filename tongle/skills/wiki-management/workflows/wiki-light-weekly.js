@@ -10,8 +10,9 @@ export const meta = {
 }
 
 // 路径配置（env化，朋友环境通过env覆盖；bash自解析，规避sandbox禁process.env）
+const PLUGIN_DIR = (await agent(`bash: d=$(find ~/.claude/plugins/cache -maxdepth 1 -name "tongle@*" -type d 2>/dev/null | head -1); [ -z "$d" ] && d="$HOME/.claude/skills/knowledge-engine"; echo "$d"`, { model: 'haiku', label: 'plugin_dir' })).trim()
 const VAULT = '${WIKI_VAULT_PATH:-$HOME/Documents/Obsidian Vault}'
-const DAEMON = VAULT + '/wiki/.wiki-daemon.py'
+const DAEMON = PLUGIN_DIR + '/adapters/obsidian/.wiki-daemon.py'
 
 
 const DEADLINK_SCHEMA = {

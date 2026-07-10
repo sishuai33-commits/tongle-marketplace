@@ -9,8 +9,10 @@ export const meta = {
 }
 
 // 路径配置（env化，朋友环境通过env覆盖；bash自解析，规避sandbox禁process.env）
+const PLUGIN_DIR = (await agent(`bash: d=$(find ~/.claude/plugins/cache -maxdepth 1 -name "tongle@*" -type d 2>/dev/null | head -1); [ -z "$d" ] && d="$HOME/.claude/skills/knowledge-engine"; echo "$d"`, { model: 'haiku', label: 'plugin_dir' })).trim()
 const VAULT = '${WIKI_VAULT_PATH:-$HOME/Documents/Obsidian Vault}'
-const DAEMON = VAULT + '/wiki/.wiki-daemon.py'
+const DAEMON = PLUGIN_DIR + '/adapters/obsidian/.wiki-daemon.py'
+const WIKI_CHECKS = PLUGIN_DIR + '/skills/wiki-management/scripts/wiki_checks.py'
 
 
 // ══════════════════════════════════════════════════
@@ -185,7 +187,7 @@ const [overlaps, conflicts, zombies, structure] = await parallel([
     方法:
     1. bash: python3 "${DAEMON}" counts
        获取每个项目的文件分布
-    2. bash: python3 ~/.claude/skills/wiki-management/scripts/wiki_checks.py --alien --json
+    2. bash: python3 "${WIKI_CHECKS}" --alien --json
        获取非标字段分布（结构问题的代理指标）
     3. 检查:
        A. 归属混乱: concepts/ 下是否有项目专属概念（应迁移到 projects/{项目}/concepts/）？
