@@ -15,7 +15,7 @@ metadata:
 # Wiki 知识体系维护
 
 > 基于 Karpathy LLM Wiki 三层架构的知识库全生命周期管理
-> 页面模板和格式定义见 WIKI_SCHEMA.md，衰减参数见 wiki/.dream-config.md（仅作归档参考，不再当触发器）
+> 页面模板和格式定义见 WIKI_SCHEMA.md，衰减参数见 wiki/.dream-config.md（relevance计算数据源；"归档参考"指不再自动触发Dream，非不再使用）
 
 ## 一、触发条件
 
@@ -223,7 +223,7 @@ python3 "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/skills/knowledge-engine}/skills/wik
 5. 产出清单 → 指挥官确认 → 执行
 6. 自检
 
-**衰减计算保留**：relevance_score 计算公式仍定义在 `wiki/.dream-config.md`，但仅作归档参考，不再当自动触发器。
+**衰减计算保留**：relevance_score 计算公式定义在 `wiki/.dream-config.md`，wiki_checks.py 用它算 relevance（数据源）；不再当 Dream 自动触发器。
 
 ### 3.5 Forget（智能遗忘）
 
@@ -231,7 +231,7 @@ python3 "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/skills/knowledge-engine}/skills/wik
 
 **原则**：遗忘 ≠ 删除，是权重调整。低 relevance 页面日落归档到 `wiki/_archived/`（可恢复）。
 
-**衰减公式与阈值**：见 `wiki/.dream-config.md`（仅作归档参考）
+**衰减公式与阈值**：见 `wiki/.dream-config.md`（relevance计算数据源）
 
 **流程**：扫描页面计算 relevance → 四级分类(🟢>0.7/🟡0.3-0.7/🔴0.1-0.3/⚫<0.1) → ⚫进入候选 → 7天缓冲 → 无异议归档 → 90天后物理删除
 

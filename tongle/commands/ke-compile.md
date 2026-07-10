@@ -21,7 +21,7 @@ ke 编译环执行器：把 pending-compile.jsonl 待编译条目 Ingest 成 wik
 - `pending`：待编译条目清单（title + added_ts）
 - `pending_count`：待编译条目数
 
-若 `pending_count=0` 且无 `--file`：报告"无待编译条目，采集环产出后再来"，结束。
+若 `pending_count=0` 且无 `--file`：报告"无待编译条目，待working-memory合成synthesized后再来"，结束。
 
 ### 第1步 确定编译范围
 

@@ -1,6 +1,6 @@
 {
   "name": "tongle",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "tongle — 个人知识工程机制层：双环控制/记忆体系/慢环/Wiki追踪/Agent治理/守卫门禁。机制与资产分离：机制层(hooks)做plugin底座，资产层(config/+assets/)可插拔。让 AI 真正懂你的个人知识车间。",
   "author": {
     "name": "commander"

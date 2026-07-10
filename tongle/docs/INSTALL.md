@@ -42,12 +42,14 @@ hook 默认按 `$HOME` 推导路径。如果你的 memory / Vault / 项目根不
 export CC_MEMORY_DIR=~/.claude/projects/你的编码/memory
 export WIKI_VAULT_PATH=你的Vault路径
 export SOURCE_ROOT=你的项目根目录   # 采集环源1 扫描根，可选
+export KE_EXTRA_SOURCES=你的额外项目路径   # wiki-full-compile 额外数据源（个人项目），可选，空则不扫描
 ```
 
 默认位置：
 - `CC_MEMORY_DIR` = `~/.claude/projects/<HOME编码>/memory`
 - `WIKI_VAULT_PATH` = `~/Documents/Obsidian Vault`
 - `SOURCE_ROOT` = `~/Documents/My_Code_Projects`（示例默认值，你的项目根若在别处务必覆盖）
+- `KE_EXTRA_SOURCES` = 空（不扫描额外数据源；设为个人项目路径则 wiki-full-compile 扫描该目录变更）
 
 `bash scripts/env-check.sh` 会推导并告诉你设没设对。
 
@@ -56,6 +58,26 @@ export SOURCE_ROOT=你的项目根目录   # 采集环源1 扫描根，可选
 tongle 可独立运行（注入链 + 守卫不依赖外部 skill），但装了这两个 skill 功能更全：
 - **wiki-management**（Wiki 编译/维护）：tongle 的 SessionStart 会调它的 `wiki_checks.py` 做 wiki 健康检查。没装则跳过。
 - **skills-management**（skills 全周期管理）：`config/skills-management/resident-skills.yaml` 是它的配置。没装则忽略。
+
+## 可选：启用 Wiki Workflow（全量编译/慢环/周检）
+
+tongle 的 3 个 Wiki workflow 是重型工具，日常用 `/ke-compile` 增量编译不需要它们：
+
+| 命令 | 用途 | 代价 |
+|------|------|------|
+| `/wiki-full-compile` | 全量重构/跨域整理（≥5页） | 重（~30 Agent） |
+| `/wiki-slow-loop` | 慢环提纯（4维度并行） | 重 |
+| `/wiki-light-weekly` | 轻量周检（死链+index刷新） | 中（~6 Agent） |
+
+CC 不支持 plugin 自动注册 workflow（只支持 skills/commands/hooks/agents），需手动链接到 `~/.claude/workflows/`：
+
+```bash
+WF_DIR=$(find ~/.claude/plugins/cache -path "*/wiki-management/workflows" -type d 2>/dev/null | head -1)
+mkdir -p ~/.claude/workflows
+ln -sf "$WF_DIR"/wiki-{full-compile,slow-loop,light-weekly}.js ~/.claude/workflows/
+```
+
+装完新开 claude 会话，`/wiki-full-compile` 等可用。workflow 内路径已 env 化（`WIKI_VAULT_PATH`/`CC_MEMORY_DIR`/`KE_EXTRA_SOURCES`），按上方环境变量段设置。
 
 ## 卸载
 

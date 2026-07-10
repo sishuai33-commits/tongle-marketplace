@@ -10,7 +10,7 @@ ke 采集环手动触发器：串 scanner（三源扫描）+ collector（判别 
 - `--source file`：只扫本地文件变更（scanner --source local_file）
 - `--source dialogue`：只扫会话 transcript（scanner --source transcript，需 --transcript 或 KE_TRANSCRIPT_PATH env）
 - `--source note`：只扫知识星球 ima（scanner --source ima）
-- `--full-scan`：全量重扫（归零游标，慢环触发用）
+- `--full-scan`：全量重扫（归零游标，ke慢环触发用）
 - `--file <path>`：覆盖扫描根（传给 scanner --root，目录路径）
 
 ## 编排（scanner + collector）

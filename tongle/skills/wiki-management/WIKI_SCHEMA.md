@@ -176,7 +176,7 @@ pinned: true                  # 建议 pinned，永久豁免衰减
 发现冲突时：
 1. 以最新文件为准
 2. 在 Wiki 页面追加 `conflict_with` + `conflict_type`
-3. 写入 `review-queue` 矛盾 section
+3. review-queue 已冻结，矛盾改记 `log.md`
 4. 追加 `#conflict` 标签
 
 ---

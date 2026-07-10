@@ -1,5 +1,5 @@
 # discard-patterns.yaml — 认脸主题级去重模式库（M2）
-# 从 cross-domain-extract 提取的 discard 理由种子初始化
+# 来源：cross-domain-extract 提取种子(dp-001~005) + 批阅真实候选写入(dp-006~010)
 # human_confirmed: false 的不生效，人确认后改 true
 # discard-pattern-check.py 用 confirmed 模式匹配候选，标 discard_pattern_hit
 # 不自动 discard（守红线5人确认），只标记辅助人裁决策
@@ -40,18 +40,28 @@ patterns:
     source_pattern: "ima_candidate"
     note: "IMA笔记日常更新(归档文件夹)，有需要再查"
     human_confirmed: false
-  - id: dp-008
-    keyword: "/Users/sishuai/Documents/My_Co"
-    source_pattern: "file_change_candidate"
-    note: "ke项目内部开发文档(v1.4.0方案)，非个人知识"
-    human_confirmed: false
   - id: dp-009
     keyword: "VIX 美元指数 DXY 美30年国债收益率 实时数值 20"
     source_pattern: "new_candidate"
     note: "一次性VIX/DXY实时数值搜索，非持久认知"
-    human_confirmed: false
+    human_confirmed: true
   - id: dp-010
     keyword: "A股 科创50 半导体 重大政策 新闻 2026年7月7日至"
     source_pattern: "new_candidate"
     note: "一次性A股政策新闻搜索碎片，非持久认知"
+    human_confirmed: true
+  - id: dp-011
+    keyword: "/Users/sishuai/Documents/My_Co"
+    source_pattern: "file_change_candidate"
+    note: "ke内部发版物料(INSTALL.md),工程产物非wiki认知,v1.5.0发版审查批阅"
+    human_confirmed: false
+  - id: dp-012
+    keyword: "/Users/sishuai/Documents/My_Co"
+    source_pattern: "file_change_candidate"
+    note: "ke内部架构doc(architecture-paradigm),工程产物非wiki认知,v1.5.0发版审查批阅"
+    human_confirmed: false
+  - id: dp-013
+    keyword: "/Users/sishuai/Documents/My_Co"
+    source_pattern: "file_change_candidate"
+    note: "ke内部审查入口doc(v1.5.0-release-review-entry),工程产物非wiki认知,v1.5.0发"
     human_confirmed: false

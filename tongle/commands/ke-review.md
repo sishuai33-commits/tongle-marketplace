@@ -30,12 +30,12 @@ argument-hint: <index> <relation_type> <disposition> [note]
 ## 建议下一步（裁决完 AI 主动建议）
 - 裁决完 pending 候选后，查 `pending-compile.jsonl`：有待编译条目 -> `/ke-compile` 编译进 wiki
 - 无待编译 + 有未采原料 -> `/ke-collect` 补采
-- 裁决经验已入 experience 棘轮 -> 积累跨多 session 后可触发加工环识别跨域同构（见下"加工环衔接"）
+- 裁决经验已入 experience 棘轮 -> 积累跨多 session 后可触发跨域提炼识别跨域同构（见下"跨域提炼衔接"）
 - 都无 -> 判别环闭环，正常使用
 
-## 加工环衔接（跨域同构识别）
+## 跨域提炼衔接（跨域同构识别）
 
-裁决产出的经验入 `discriminate-experience.jsonl` 棘轮，积累跨多 session 后可触发加工环识别跨域同构模式（不同领域相同结构，如"偏差->累积->评估->确认->棘轮"在 Agent 进化与 ke 判别都出现）。
+裁决产出的经验入 `discriminate-experience.jsonl` 棘轮，积累跨多 session 后可触发跨域提炼识别跨域同构模式（不同领域相同结构，如"偏差->累积->评估->确认->棘轮"在 Agent 进化与 ke 判别都出现）。
 
 **触发**（`cross-domain-extract.py` 保持独立脚本，本命令只编排触发，职责不混入 review 逻辑）：
 
@@ -49,4 +49,4 @@ argument-hint: <index> <relation_type> <disposition> [note]
 
 **守红线⑤**：跨域模式 `human_confirmed` 默认 false，人确认后才可用于消费环。脚本只产 LLM 依据（两域映射+可溯源证据+理由）供人裁决，不自动判 confirm/reject。
 
-**scope 边界（v1.4.0）**：本衔接只补命令入口 + 流程衔接。加工环深度（认脸主题级去重/语义去重/跨域同构识别准确率）是独立架构级问题（见独立评估风险#1#2），不在 v1.4.0。
+**scope 边界（v1.4.0）**：本衔接只补命令入口 + 流程衔接。跨域提炼深度（认脸主题级去重/语义去重/跨域同构识别准确率）是独立架构级问题（见独立评估风险#1#2），不在 v1.4.0。
