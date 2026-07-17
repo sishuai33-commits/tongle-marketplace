@@ -30,6 +30,14 @@ WIKI_DIR = Path(paths.wiki_vault()) / "wiki"
 CLAUDE_MD = Path(paths.home()) / ".claude" / "CLAUDE.md"
 MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
 
+# ── 门槛阈值（集中定义，health.py / guards.py 共用）──
+# 两级阈值：预警阈值（maintenance_check，SessionStart 提前提醒）< 硬上限（memory-guard，PostToolUse 才报）
+# 预警提前告警给人处理窗口，硬上限是真正超标的底线。
+INDEX_WARN_LINES = 140   # MEMORY.md 预警行数（maintenance_check 用）
+INDEX_MAX_LINES = 150    # MEMORY.md 硬上限（memory-guard 用）
+CLAUDE_WARN_LINES = 180  # CLAUDE.md 预警行数（maintenance_check 用）
+CLAUDE_MAX_LINES = 200   # CLAUDE.md 硬上限（memory-guard 用）
+
 # ── invest 阈值真值源校验 ──
 KE_THRESHOLDS_YAML = Path(paths.config_dir()) / "invest" / "thresholds.yaml"
 INVEST_WIKI = WIKI_DIR / "projects" / "投资跟踪"
@@ -298,8 +306,7 @@ def ref_main(raw=None):
 
 # ---------- memory-guard（bash→python 重写）----------
 
-MAX_INDEX_LINES = 150
-MAX_CLAUDE_LINES = 200
+# 引用 guards 集中定义的阈值（薄壳消除 P1：阈值常量化）
 
 
 def memory_check():
@@ -337,16 +344,16 @@ def memory_check():
     # 3. 索引行数超限
     if index_file.is_file():
         index_lines = _state.read_lines(index_file)
-        if index_lines > MAX_INDEX_LINES:
-            print(f"🚨 Memory 守卫: MEMORY.md {index_lines} 行，超过 {MAX_INDEX_LINES} 行上限")
+        if index_lines > INDEX_MAX_LINES:
+            print(f"🚨 Memory 守卫: MEMORY.md {index_lines} 行，超过 {INDEX_MAX_LINES} 行上限")
             violations += 1
             index_over = 1
 
     # 4. CLAUDE.md 行数超限
     if claude_md.is_file():
         claude_lines = _state.read_lines(claude_md)
-        if claude_lines > MAX_CLAUDE_LINES:
-            print(f"🚨 Memory 守卫: CLAUDE.md {claude_lines} 行，超过 {MAX_CLAUDE_LINES} 行上限")
+        if claude_lines > CLAUDE_MAX_LINES:
+            print(f"🚨 Memory 守卫: CLAUDE.md {claude_lines} 行，超过 {CLAUDE_MAX_LINES} 行上限")
             violations += 1
             claude_over = 1
 
@@ -459,10 +466,10 @@ def memory_check():
         "frontmatter_bad": frontmatter_bad,
         "index_over_limit": index_over,
         "index_lines": index_lines,
-        "index_max": MAX_INDEX_LINES,
+        "index_max": INDEX_MAX_LINES,
         "claude_md_over_limit": claude_over,
         "claude_md_lines": claude_lines,
-        "claude_md_max": MAX_CLAUDE_LINES,
+        "claude_md_max": CLAUDE_MAX_LINES,
         "total_files": total_files,
         "last_reminded_epoch": last_reminded,
         "reminder_count": reminder_count,

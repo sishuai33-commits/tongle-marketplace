@@ -136,28 +136,19 @@ def format_freshness(days_ago):
 
 # ---------- 文件 IO ----------
 
-def parse_vocab(vocab_file=None):
-    """解析 .ai-vocab.md，返回 (domains, concept_count, entities, proj_events)
+# ── parse_vocab 子解析器（P2 拆小：200行巨型函数 → 6个独立解析器 + 编排）──
 
-    不存在返回 None（build 检查 is None）。
-    修复原 build-asset-manifest.py bug：原 parse_vocab 不存在返回 5 元组 (None,None,None,None,0)，
-    但 build 检查 `if parsed is None`（元组非 None，永远 False），unpack 5→4 变量 ValueError。
-    生产未触发因 vocab 总存在；lib 单测覆盖不存在分支暴露此 bug。
-    """
-    vocab_file = vocab_file or vocab_path()
-    if not os.path.exists(vocab_file):
-        return None
-    with open(vocab_file, encoding="utf-8", errors="replace") as f:
-        text = f.read()
-
-    # 全局概念数
+def _parse_concept_count(text):
+    """解析 ## 全局概念 → 概念数"""
     gc_start = text.find("## 全局概念")
     gc_end = text.find("## 项目")
     gc_section = text[gc_start:gc_end] if gc_start >= 0 and gc_end > gc_start else ""
     gc_rows = re.findall(r'^\| (.+?) \|', gc_section, re.MULTILINE)
-    concept_count = len([r for r in gc_rows if r not in ('概念', '------')])
+    return len([r for r in gc_rows if r not in ('概念', '------')])
 
-    # 实体映射
+
+def _parse_entities(text):
+    """解析 ## 实体 → {name: {aliases, type}}"""
     entities = {}
     ent_start = text.find("## 实体")
     ent_end = text.find("## 全局概念")
@@ -170,57 +161,68 @@ def parse_vocab(vocab_file=None):
                 continue
             aliases = [a.strip() for a in e[1].split('、')] if e[1].strip() else []
             entities[name] = {'aliases': aliases, 'type': e[2].strip()}
+    return entities
 
-    # 项目列表
+
+def _parse_project_rows(text):
+    """解析 ## 项目 → 项目行列表"""
     proj_start = text.find("## 项目")
     rest = text[proj_start:] if proj_start >= 0 else ""
     proj_end = rest.find("已归档：")
     if proj_end < 0:
         proj_end = rest.find("\n\n---", 50)
     proj_section = rest[:proj_end] if proj_end > 0 else rest
-    proj_rows = re.findall(r'^\| (.+?) \| (.+?) \| (.+?) \| (.+?) \|', proj_section, re.MULTILINE)
+    return re.findall(r'^\| (.+?) \| (.+?) \| (.+?) \| (.+?) \|', proj_section, re.MULTILINE)
 
-    # 项目专属概念 → 关键词
+
+def _parse_project_concepts(text):
+    """解析 ## 项目专属概念 → {project_name: [keywords]}"""
     proj_concepts = {}
     pc_start = text.find("## 项目专属概念")
-    if pc_start > 0:
-        pc_text = text[pc_start:]
-        next_section = re.search(r'\n## [^#]', pc_text[10:])
-        if next_section:
-            pc_text = pc_text[:10 + next_section.start()]
-        blocks = re.split(r'\n### (?=[^#])', pc_text)
-        for block in blocks[1:]:
-            m = re.match(r'(.+?) \((\d+)\)\s*\n', block)
-            if not m:
-                continue
-            pname = m.group(1).strip()
-            concepts = re.findall(r'^\| (.+?) \| .+ \|$', block, re.MULTILINE)
-            concepts = [c for c in concepts if c not in ('概念', '------', '索引')]
-            kws = [c for c in concepts if 2 <= len(c) <= 12]
-            proj_concepts[pname] = kws[:6]
+    if pc_start <= 0:
+        return proj_concepts
+    pc_text = text[pc_start:]
+    next_section = re.search(r'\n## [^#]', pc_text[10:])
+    if next_section:
+        pc_text = pc_text[:10 + next_section.start()]
+    blocks = re.split(r'\n### (?=[^#])', pc_text)
+    for block in blocks[1:]:
+        m = re.match(r'(.+?) \((\d+)\)\s*\n', block)
+        if not m:
+            continue
+        pname = m.group(1).strip()
+        concepts = re.findall(r'^\| (.+?) \| .+ \|$', block, re.MULTILINE)
+        concepts = [c for c in concepts if c not in ('概念', '------', '索引')]
+        kws = [c for c in concepts if 2 <= len(c) <= 12]
+        proj_concepts[pname] = kws[:6]
+    return proj_concepts
 
-    # 事件（按项目分组，取最近3条）
+
+def _parse_events(text):
+    """解析 ## 事件 → {project_name: [{date, desc}]}"""
     proj_events = {}
     ev_start = text.find("## 事件")
-    if ev_start > 0:
-        ev_text = text[ev_start:]
-        ev_end = ev_text.find("\n## ", 10)
-        if ev_end > 0:
-            ev_text = ev_text[:ev_end]
-        ev_rows = re.findall(r'^\| (.+?) \| (.+?) \| (.+?) \|', ev_text, re.MULTILINE)
-        for ev in ev_rows:
-            date = ev[0].strip()
-            desc = ev[1].strip()
-            proj_name = ev[2].strip()
-            if date in ('日期', '------'):
-                continue
-            if proj_name not in proj_events:
-                proj_events[proj_name] = []
-            proj_events[proj_name].append({'date': date, 'desc': desc})
+    if ev_start <= 0:
+        return proj_events
+    ev_text = text[ev_start:]
+    ev_end = ev_text.find("\n## ", 10)
+    if ev_end > 0:
+        ev_text = ev_text[:ev_end]
+    ev_rows = re.findall(r'^\| (.+?) \| (.+?) \| (.+?) \|', ev_text, re.MULTILINE)
+    for ev in ev_rows:
+        date = ev[0].strip()
+        desc = ev[1].strip()
+        proj_name = ev[2].strip()
+        if date in ('日期', '------'):
+            continue
+        proj_events.setdefault(proj_name, []).append({'date': date, 'desc': desc})
+    return proj_events
 
-    # 构建项目 domain 列表
+
+def _build_domains(project_rows, proj_concepts, proj_events):
+    """从项目行构建 domain 列表（关键词提取 + 实体链接 + 优先级判定）"""
     domains = []
-    for p in proj_rows:
+    for p in project_rows:
         name = p[0].strip()
         if name in ('项目', '------'):
             continue
@@ -258,15 +260,34 @@ def parse_vocab(vocab_file=None):
         priority = determine_priority(clean, is_light, phase, status, deadline)
 
         domains.append({
-            "name": clean,
-            "light": is_light,
-            "phase": phase,
-            "status": status,
-            "keywords": all_kws,
-            "entities": linked_entities,
-            "priority": priority,
-            "has_deadline": deadline,
+            "name": clean, "light": is_light,
+            "phase": phase, "status": status,
+            "keywords": all_kws, "entities": linked_entities,
+            "priority": priority, "has_deadline": deadline,
         })
+    return domains
+
+
+def parse_vocab(vocab_file=None):
+    """解析 .ai-vocab.md，返回 (domains, concept_count, entities, proj_events)
+
+    不存在返回 None（build 检查 is None）。
+    修复原 build-asset-manifest.py bug：原 parse_vocab 不存在返回 5 元组 (None,None,None,None,0)，
+    但 build 检查 `if parsed is None`（元组非 None，永远 False），unpack 5→4 变量 ValueError。
+    生产未触发因 vocab 总存在；lib 单测覆盖不存在分支暴露此 bug。
+    """
+    vocab_file = vocab_file or vocab_path()
+    if not os.path.exists(vocab_file):
+        return None
+    with open(vocab_file, encoding="utf-8", errors="replace") as f:
+        text = f.read()
+
+    concept_count = _parse_concept_count(text)
+    entities = _parse_entities(text)
+    project_rows = _parse_project_rows(text)
+    proj_concepts = _parse_project_concepts(text)
+    proj_events = _parse_events(text)
+    domains = _build_domains(project_rows, proj_concepts, proj_events)
 
     return domains, concept_count, entities, proj_events
 
@@ -490,115 +511,5 @@ def build(strategy="all", project=None, limit=3):
     return "\n".join(lines)
 
 
-# ---------- SessionStart 资产感知（原 session-start.py §1-§3 搬入，ponytail-audit 批3）----------
-
-def parse_patterns(instincts_dir):
-    """解析 patterns.yaml 手工 instinct（confidence≥0.5 按 confidence 降序）"""
-    patterns_file = os.path.join(instincts_dir, "patterns.yaml")
-    if not os.path.isfile(patterns_file):
-        return []
-    content = state.read_text(patterns_file)
-    blocks = re.split(r'\n---\n?', content)
-    instincts = []
-    i = 0
-    while i < len(blocks) - 1:
-        fm_block = blocks[i].strip()
-        body_block = blocks[i + 1].strip() if i + 1 < len(blocks) else ''
-        fm_block = re.sub(r'^---\s*\n?', '', fm_block)
-        if not fm_block.startswith('id:'):
-            i += 1
-            continue
-        fm = {}
-        for line in fm_block.split('\n'):
-            line = line.strip()
-            if ':' in line and not line.startswith('#'):
-                key, _, val = line.partition(':')
-                fm[key.strip()] = val.strip().strip('"')
-        action_match = re.search(r'## Action\s*\n(.*?)(\n##|\Z)', body_block, re.DOTALL)
-        action = action_match.group(1).strip() if action_match else 'N/A'
-        action = ' '.join(action.split())
-        instincts.append({
-            'id': fm.get('id', '?'),
-            'trigger': fm.get('trigger', '?'),
-            'confidence': float(fm.get('confidence', 0)),
-            'domain': fm.get('domain', '?'),
-            'action': action,
-        })
-        i += 2
-    active = [x for x in instincts if x['confidence'] >= 0.5]
-    active.sort(key=lambda x: x['confidence'], reverse=True)
-    return active
-
-
-def instinct_line(x):
-    """instinct 行格式化（ID|DOMAIN|CONF|TRIGGER|ACTION）"""
-    return (f"ID:{x['id']}|DOMAIN:{x['domain']}|CONF:{x['confidence']}"
-            f"|TRIGGER:{x['trigger']}|ACTION:{x['action'][:200]}")
-
-
-def parse_working_memory(cc_memory_dir):
-    """解析 working-memory.md 的 [active]/[活跃] topic，返回 (wm_section_str, wm_count)"""
-    wm_file = os.path.join(cc_memory_dir, "working-memory.md")
-    if not os.path.isfile(wm_file):
-        return "", 0
-    wm = state.read_text(wm_file)
-    topics = []
-    current = None
-    for line in wm.split('\n'):
-        if line.startswith('## Topic:'):
-            if current and current['signals']:
-                topics.append(current)
-            current = {'title': line.replace('## Topic:', '').strip(), 'signals': []}
-        elif current and line.startswith('- [') and len(current['signals']) < 3:
-            sig = line.strip()
-            if len(sig) > 120:
-                sig = sig[:117] + '...'
-            current['signals'].append(sig)
-    if current and current['signals']:
-        topics.append(current)
-    active = [t for t in topics if '[active]' in t['title'] or '[活跃]' in t['title']]
-    if not active:
-        return "", 0
-    lines = []
-    for i, t in enumerate(active[:5]):
-        title = t['title'].replace('[active]', '').replace('[活跃]', '').strip()
-        lines.append(f'### {title}')
-        lines.append('<br>'.join(t['signals']))
-        if i < min(len(active), 5) - 1:
-            lines.append('')
-    wm_count = min(len(active), 5)
-    wm_section = (f"## Working Memory ({wm_count} active topic(s))\n\n"
-                  + "\n".join(lines) +
-                  "\n\n> 建议新会话启动后读取 working-memory.md 获取完整上下文，"
-                  "交叉引用 MEMORY.md 项目索引对应 Wiki 页面。")
-    return wm_section, wm_count
-
-
-def gen_active_context(instincts_dir, session_id, manual_instincts, manual_count, wm_section):
-    """生成 active-context.md（文件备份，供调试用，原 §3）"""
-    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M") + " UTC"
-    lines = [f"# Active Context — {timestamp}", "", f"> Session: {session_id}", "",
-             "## Active Instincts (patterns.yaml)", ""]
-    if manual_instincts and manual_count > 0:
-        for line in manual_instincts.split('\n'):
-            if not line.strip():
-                continue
-            parts = {}
-            for seg in line.split('|'):
-                if ':' in seg:
-                    k, _, v = seg.partition(':')
-                    parts[k.strip()] = v
-            lines.append(f"- **[{parts.get('ID', '')}]** "
-                         f"({parts.get('DOMAIN', '')}, conf={parts.get('CONF', '')}) "
-                         f"— {parts.get('ACTION', '')}")
-    else:
-        lines.append("(none)")
-    if wm_section:
-        lines.append("")
-        lines.append(wm_section)
-    try:
-        with open(os.path.join(instincts_dir, "active-context.md"),
-                  "w", encoding="utf-8", errors="replace") as f:
-            f.write('\n'.join(lines) + '\n')
-    except OSError:
-        pass
+# ── 注：SessionStart 上下文构建函数（parse_patterns/instinct_line/parse_working_memory/gen_active_context）
+# 已提取到 lib/session_context.py（P1 模块瘦身）。session-start.py 改从 session_context import。

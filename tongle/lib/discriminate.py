@@ -371,11 +371,10 @@ def _load_collector_context(cursor_file, obs_file, ts_field, full_scan, filter_f
 
 
 def _finalize_collector(cursor_file, events, log_msg):
-    """公共收尾：游标推进 + marker 刷新 + 输出 + exit。"""
+    """公共收尾：游标推进 + marker 刷新 + 输出。不再 sys.exit（薄壳消除：session-end 直调 lib）。"""
     state.write_cursor(cursor_file, events[-1][0].strftime("%Y-%m-%dT%H:%M:%SZ"))
     update_trigger_marker()
     print(log_msg, file=sys.stderr)
-    sys.exit(0)
 
 
 def run_observe_mode(full_scan):
@@ -578,5 +577,6 @@ def main():
     """CLI 入口：--source 扫源原料 / --full-scan 全量重扫 / 无参=增量（SessionEnd 用）"""
     if "--source" in sys.argv[1:]:
         run_source_mode("--full-scan" in sys.argv[1:])
-        return
-    run_observe_mode("--full-scan" in sys.argv[1:])
+    else:
+        run_observe_mode("--full-scan" in sys.argv[1:])
+    sys.exit(0)

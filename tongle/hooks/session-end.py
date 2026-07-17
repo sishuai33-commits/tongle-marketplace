@@ -12,22 +12,14 @@ Part D 改 hooks.json 指向本脚本 + 删旧 .sh。
 """
 import json
 import os
-import subprocess
 import sys
 
 _PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PLUGIN_ROOT not in sys.path:
     sys.path.insert(0, _PLUGIN_ROOT)
-from lib import paths, discriminate, compile
+from lib import paths, discriminate, compile, scanner
 
 os.environ.setdefault("PYTHONUTF8", "1")
-
-
-def _run_quiet(cmd, timeout=15):
-    try:
-        subprocess.run(cmd, capture_output=True, timeout=timeout)
-    except Exception:
-        pass
 
 
 # ── §1 wiki-check ──────────────────────────────────────
@@ -46,10 +38,6 @@ def _wiki_check():
 
 # ── §2 discriminate 串联 ───────────────────────────────
 def _discriminate(raw):
-    hooks_dir = paths.hooks_dir()
-    scanner = os.path.join(hooks_dir, "source-scanner.py")
-    collector = os.path.join(hooks_dir, "discriminate-collector.py")
-
     # 解析 stdin（transcript_path + session_id，供源2 transcript 扫描）
     transcript_path = ""
     session_id = ""
@@ -61,20 +49,23 @@ def _discriminate(raw):
         except Exception:
             pass
 
-    # 源1 local_file + 源2 transcript + 源3 ima（scanner 薄壳调 lib/scanner）
-    if os.path.isfile(scanner):
+    # 源1 local_file + 源2 transcript + 源3 ima（直调 lib/scanner，消薄壳 subprocess）
+    try:
         source_root = os.environ.get(
             "SOURCE_ROOT", os.path.join(paths.home(), "Documents", "My_Code_Projects"))
-        _run_quiet(["python3", scanner, "--source", "local_file", "--root", source_root])
+        scanner.scan_local_file(source_root, False)
         if transcript_path:
-            _run_quiet(["python3", scanner, "--source", "transcript",
-                        "--transcript", transcript_path, "--session", session_id])
-        _run_quiet(["python3", scanner, "--source", "ima"])
+            scanner.scan_transcript(transcript_path, session_id)
+        scanner.scan_ima(False)
+    except Exception as e:
+        print(f"[session-end] WARN: scanner 采集失败 {e}", file=sys.stderr)
 
-    # collector --source（判 file_change/transcript_candidate）+ collector（observe 模式判 evolve/new）
-    if os.path.isfile(collector):
-        _run_quiet(["python3", collector, "--source"])
-        _run_quiet(["python3", collector])
+    # collector（直调 lib/discriminate，消薄壳 subprocess）
+    try:
+        discriminate.run_source_mode(False)
+        discriminate.run_observe_mode(False)
+    except Exception as e:
+        print(f"[session-end] WARN: collector 判别失败 {e}", file=sys.stderr)
 
     # 独立 marker 刷新（P1-1 真实根因修复：基于 pending 总数，不依赖 collector 是否产出新候选）
     try:
