@@ -22,6 +22,53 @@ _PENDING_LABELS = {
 }
 
 
+WIKI_HEALTH_CACHE_SECS = 300  # wiki_health 缓存 TTL（5 分钟）：subprocess 扫描耗 ~850ms，短时重复无价值
+
+
+def _wiki_health_cache_path():
+    return os.path.join(paths.instincts_dir(), ".wiki-health-cache.json")
+
+
+def _wiki_health_scan():
+    """实际调 wiki_checks.py --json 扫描，返回结果字符串（空串=无问题/失败）"""
+    wiki_checks = os.path.join(paths.plugin_root(), "skills",
+                               "wiki-management", "scripts", "wiki_checks.py")
+    if not os.path.isfile(wiki_checks):
+        wiki_checks = os.path.join(paths.home(), ".claude", "skills",
+                                   "wiki-management", "scripts", "wiki_checks.py")
+    if not os.path.isfile(wiki_checks):
+        return ""
+    out = utils.run_quiet(["python3", wiki_checks, "--json"])
+    if not out:
+        return ""
+    try:
+        d = json.loads(out)
+    except json.JSONDecodeError:
+        return ""
+    fm_missing = len(d.get('frontmatter', {}).get('missing', []))
+    fm_incomplete = len(d.get('frontmatter', {}).get('incomplete', []))
+    dead = len(d.get('dead_links', {}).get('dead', []))
+    stale = len(d.get('staleness_mismatches', []))
+    sunset = len(d.get('sunset_candidates', []))
+    total = d.get('total_pages', 0)
+    issues = fm_missing + fm_incomplete + dead + stale + sunset
+    if issues == 0:
+        return ""
+    is_red = fm_missing >= 10 or dead >= 5 or stale >= 10
+    icon = '🔴' if is_red else '🟡'
+    parts = []
+    if fm_missing > 0: parts.append(f'{fm_missing} 缺元数据')
+    if fm_incomplete > 0: parts.append(f'{fm_incomplete} 元数据不全')
+    if dead > 0: parts.append(f'{dead} 断链')
+    if stale > 0: parts.append(f'{stale} 过期')
+    if sunset > 0: parts.append(f'{sunset} 待归档')
+    detail = ' '.join(parts)
+    detail_prefix = f"其中 {detail}，" if detail else ""
+    if is_red:
+        return f"{icon} 知识库 {total} 页 {issues} 项待整理，{detail_prefix}影响知识查找，需立即整理"
+    return f"{icon} 知识库 {total} 页 {issues} 项待整理，{detail_prefix}有空处理"
+
+
 def _dashboard_stats(instincts_dir):
     """dashboard 统计：返回 (pending, succ, fail)"""
     pending = 0
@@ -361,47 +408,32 @@ def collection_visibility(instincts_dir):
 
 
 def wiki_health(snooze_file):
-    """Wiki 健康检查（原 §6.6，调 wiki_checks.py --json）"""
-    # 优先 plugin 自带 skill（v1.3.0 内建），fallback ~/.claude/skills/（旧装法/独立装）
-    wiki_checks = os.path.join(paths.plugin_root(), "skills",
-                               "wiki-management", "scripts", "wiki_checks.py")
-    if not os.path.isfile(wiki_checks):
-        wiki_checks = os.path.join(paths.home(), ".claude", "skills",
-                                   "wiki-management", "scripts", "wiki_checks.py")
-    if not os.path.isfile(wiki_checks):
-        return ""
-    # .alert-snooze 含 wiki-health 行 → 整段静音
+    """Wiki 健康检查（原 §6.6，调 wiki_checks.py --json，带 5 分钟缓存）
+
+    snooze 检查不缓存（每次都查，用户随时可能静音）；
+    wiki_checks.py subprocess 扫描带缓存（耗 ~850ms，5 分钟内重复跳过）。
+    """
+    # .alert-snooze 含 wiki-health 行 -> 整段静音（不缓存，实时查）
     if os.path.isfile(snooze_file):
         with open(snooze_file, encoding="utf-8", errors="replace") as f:
             for line in f:
                 if line.strip() == 'wiki-health':
                     return ""
-    out = utils.run_quiet(["python3", wiki_checks, "--json"])
-    if not out:
-        return ""
+    # 缓存检查：TTL 内直接返回缓存结果
+    cache_path = _wiki_health_cache_path()
     try:
-        d = json.loads(out)
-    except json.JSONDecodeError:
-        return ""
-    fm_missing = len(d.get('frontmatter', {}).get('missing', []))
-    fm_incomplete = len(d.get('frontmatter', {}).get('incomplete', []))
-    dead = len(d.get('dead_links', {}).get('dead', []))
-    stale = len(d.get('staleness_mismatches', []))
-    sunset = len(d.get('sunset_candidates', []))
-    total = d.get('total_pages', 0)
-    issues = fm_missing + fm_incomplete + dead + stale + sunset
-    if issues == 0:
-        return ""
-    is_red = fm_missing >= 10 or dead >= 5 or stale >= 10
-    icon = '🔴' if is_red else '🟡'
-    parts = []
-    if fm_missing > 0: parts.append(f'{fm_missing} 缺元数据')
-    if fm_incomplete > 0: parts.append(f'{fm_incomplete} 元数据不全')
-    if dead > 0: parts.append(f'{dead} 断链')
-    if stale > 0: parts.append(f'{stale} 过期')
-    if sunset > 0: parts.append(f'{sunset} 待归档')
-    detail = ' '.join(parts)
-    detail_prefix = f"其中 {detail}，" if detail else ""
-    if is_red:
-        return f"{icon} 知识库 {total} 页 {issues} 项待整理，{detail_prefix}影响知识查找，需立即整理"
-    return f"{icon} 知识库 {total} 页 {issues} 项待整理，{detail_prefix}有空处理"
+        with open(cache_path, encoding="utf-8", errors="replace") as f:
+            c = json.load(f)
+        if (time.time() - c.get("ts", 0)) < WIKI_HEALTH_CACHE_SECS:
+            return c.get("result", "")
+    except (OSError, json.JSONDecodeError):
+        pass
+    # 实际扫描
+    result = _wiki_health_scan()
+    # 写缓存（fail-open，写失败不影响结果）
+    try:
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump({"ts": time.time(), "result": result}, f)
+    except OSError:
+        pass
+    return result

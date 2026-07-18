@@ -33,6 +33,7 @@ import sys
 import json
 import os
 import re
+import time
 import argparse
 import urllib.request
 import urllib.error
@@ -54,6 +55,7 @@ IMA_BASE = "https://ima.qq.com/openapi/note/v1"
 IMA_CRED_DIR = os.environ.get("IMA_CRED_DIR", os.path.join(os.path.expanduser("~"), ".config", "ima"))
 IMA_PAGE_LIMIT = 20  # openapi 硬约束 limit ∈ (0, 20]（实测 limit=50 报错 code=51）
 IMA_TIMEOUT = 8  # 网络 timeout 秒（实测单次 0.429s，留余量；fail-open 不阻断）
+IMA_THROTTLE_SECS = 1800  # SessionEnd 节流窗口（30 分钟）：笔记变更低频，短时重复扫无价值
 
 # === 源2 transcript：决策动作信号正则（本项目真实用语，分两类） ===
 # decision=决策/采纳类（新增认知落点），revision=修正/推翻类（已有认知修订）
@@ -357,6 +359,20 @@ def scan_ima(full_scan):
     if not client_id or not api_key:
         return 0, "skip(无 IMA 凭证，按 ~/.config/ima/ 或 env 配置)"
 
+    # 节流：非 full_scan 且上次扫描在 throttle 窗口内 -> 跳过网络请求
+    # （SessionEnd 每次都触发，但 IMA 笔记变更低频，30 分钟内重复扫描无价值且耗时 ~1.3s）
+    # 用独立标记文件 .source-scan-ima-lastscan（cursor 文件每次扫描都更新，不能当节流钟）
+    # 环境变量 KE_IMA_THROTTLE_SECS 可覆盖（测试设 0 禁用）
+    throttle_secs = int(os.environ.get("KE_IMA_THROTTLE_SECS", str(IMA_THROTTLE_SECS)))
+    lastscan_file = os.path.join(INSTINCTS_DIR, ".source-scan-ima-lastscan")
+    if not full_scan and throttle_secs > 0:
+        try:
+            last_scan = os.path.getmtime(lastscan_file)
+            if (time.time() - last_scan) < throttle_secs:
+                return 0, f"skip(节流{throttle_secs//60}分钟内已扫)"
+        except OSError:
+            pass  # 标记文件不存在（首次或被清），不节流
+
     # 游标：max modify_time（毫秒 epoch 字符串）。首次/全量=None（空字符串也当 None）
     cursor_mtime = state.read_cursor(CURSOR_IMA)
     if not cursor_mtime:
@@ -427,6 +443,13 @@ def scan_ima(full_scan):
 
     # 游标推进到本次 max mtime（增量下次跳过已扫；全量重置基线）
     _save_cursor(CURSOR_IMA, max_mtime)
+
+    # 节流标记：记录本次实际网络扫描完成时间（下次 SessionEnd 在窗口内则跳过）
+    try:
+        with open(lastscan_file, "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
+    except OSError:
+        pass
 
     return count, None
 
